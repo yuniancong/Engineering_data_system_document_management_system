@@ -38,10 +38,9 @@ class DataManager {
     updateDirectoryRow(id, field, value) {
         const row = this.directoryData.find(r => r.id === id);
         if (row) {
-            row[field] = value;
-            // 如果更新了序号，重新排序
-            if (field === 'serial') {
-                this.reorderDirectory();
+            // 序号是自动分配的，不允许手动更新
+            if (field !== 'serial') {
+                row[field] = value;
             }
         }
     }
@@ -55,13 +54,12 @@ class DataManager {
     }
 
     /**
-     * 重新排序卷内目录
+     * 重新排序卷内目录并自动分配序号
      */
     reorderDirectory() {
-        this.directoryData.sort((a, b) => {
-            const serialA = parseInt(a.serial) || 0;
-            const serialB = parseInt(b.serial) || 0;
-            return serialA - serialB;
+        // 自动分配序号：从1开始递增
+        this.directoryData.forEach((row, index) => {
+            row.serial = index + 1;
         });
     }
 
