@@ -1,0 +1,38 @@
+我现在主要想制作一个自动化的工程资料归档组件系统，它包含多个部分，包括卷内目录、卷内备考表、案卷封面、案卷目录等内容。然后现在我主要填写的是卷内目录样式，这个样式我会进行自己填写。这个卷内目录主要分为多个列，分别是序号、文件编号列、责任者列、文件题名列、日期列、页次列和备注列。
+
+我的常规工作流使用方式是复制对应的内容或者总结对应的页面，或者通过某些软件进行识别，进行大批量的复制粘贴操作。但也可能会自己一个一个分析页面，单独输入页面、页次等内容。
+
+首先，我觉得可以使用两种模式。第一个是纯粹的复制模式，我直接复制内容到里头。还有一个是点按的模式，点按的操作是以上这个卷内目录，它是一个已经有一个表，然后可以扩展。它的这几个列每个下方都有一个按钮，点击的时候可以自动将我的剪贴板内容复制到对应的按钮位置，因为这样方便省去了我一些复制粘贴的操作。
+
+完成卷内目录后，它根据我填写的内容自动去生成卷内备考表，按案卷封面样式，以及案卷目录。
+
+在它完成的基础上，然后一系列需要填写的一些参数，如果有不确定的地方，我可以进行自定义填写。生成之后的内容，它自动生成的内容也是我可以进行手动更改的。并且修改之后，它能够多方面的几个表进行同步联动。比如说，我填写时觉得那个卷内目录还有问题的话，修改之后，它有一个同步的按钮，能够主动同步其他表中的一些相关内容。然后这个同步是可以由我自行确定是否需要进行的，只有在需要进行时才会执行。 
+
+
+
+<task>Design the automation-friendly卷内目录输入组件 that lets the user either paste raw data or click column buttons to drop clipboard values into 序号/文件编号/责任者/文件题名/日期/页次/备注, then propagate the captured data to auto-generate 卷内备考表、案卷封面、案卷目录 with optional manual overrides and a user-triggered sync button.</task>
+
+<architecture>
+- 卷内目录 UI: supports copy-paste mode and button-per-column clipboard capture; columns align with GB 50328-2014附录C requirements.
+- 数据联动层: aggregates directory rows, calculates文字/图样/照片数量, and feeds derived metadata into备考表、封面、案卷目录.
+- 同步控制: exposes manual sync action so user edits in任一表 can push updates to the others on demand.
+- 规范约束: overall system followsGB 50328-2014归档规则 for字段、页码、装具、档号、文件排序等。</architecture>
+
+<selected_context>
+Engineering_data_system_document_management_system/参照/规程总结性说明.txt: summarized要点 fromGB 50328-2014 covering卷内目录字段、填写规则、卷内备考表/案卷封面/案卷目录内容、立卷流程、页号规则、装具规格及系统开发建议。
+Engineering_data_system_document_management_system/参照/资料表格形式参照/附录C 卷内目录式样.png: reference layout for卷内目录 columns to match UI design.
+Engineering_data_system_document_management_system/参照/资料表格形式参照/附录D 卷内备考表式样.png: depicts统计字段和签字区 for generated备考表。
+Engineering_data_system_document管理系统/参照/资料表格形式参照/附录E 案卷封面式样.png: shows封面字段(档号、题名、起止日期、密级等)供自动填充。
+Engineering_data_system_document_management_system/参照/资料表格形式参照/附录G 案卷目录式样.png: illustrates案卷级目录字段编排, guiding自动汇总输出。
+Engineering_data_system_document_management_system/参照/资料表格形式参照/引用标准名录.png: supporting标准索引供引用。</selected_context>
+
+<relationships>
+- 卷内目录 entries → 统计逻辑 → 卷内备考表(总页数/文字页/图样/照片)。
+- 卷内目录 metadata (题名、责任者、日期范围) → 案卷封面字段填充。
+- 多卷数据汇聚 → 案卷目录行, referencing卷内目录数据集。
+- 同步按钮 orchestrates manual push of edits between目录、备考表、封面、目录。</relationships>
+
+<ambiguities>
+- 未指明剪贴板识别格式或字段分隔符,需设计灵活粘贴解析。
+- 同步策略细节(冲突处理、部分字段跳过)未定义,需与用户确认。
+</ambiguities>
