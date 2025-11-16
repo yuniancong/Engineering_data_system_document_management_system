@@ -586,6 +586,7 @@ function initDataActions() {
     const loadBtn = document.getElementById('loadDataBtn');
     const exportBtn = document.getElementById('exportDataBtn');
     const exportWordBtn = document.getElementById('exportWordBtn');
+    const debugBtn = document.getElementById('debugBtn');
     const clearBtn = document.getElementById('clearDataBtn');
 
     saveBtn.addEventListener('click', () => {
@@ -609,6 +610,11 @@ function initDataActions() {
     // Word导出按钮
     exportWordBtn.addEventListener('click', () => {
         openWordExportDialog();
+    });
+
+    // Debug按钮
+    debugBtn.addEventListener('click', () => {
+        showDebugInfo();
     });
 
     clearBtn.addEventListener('click', () => {
@@ -1020,4 +1026,81 @@ async function handleWordExport(template) {
         console.error('Word导出失败:', error);
         showToast('Word导出失败: ' + error.message, 'error');
     }
+}
+
+// ========== Debug功能 ==========
+
+/**
+ * 显示调试信息
+ */
+function showDebugInfo() {
+    const debugLog = wordExporter.getDebugLog();
+    const systemInfo = {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        cookiesEnabled: navigator.cookieEnabled,
+        onLine: navigator.onLine,
+        dataRows: dataManager.directoryData.length,
+        timestamp: new Date().toLocaleString()
+    };
+
+    const debugData = {
+        systemInfo: systemInfo,
+        exportLog: debugLog,
+        dataPreview: dataManager.directoryData.slice(0, 3) // 前3行数据预览
+    };
+
+    // 在控制台输出
+    console.log('=== 调试信息 ===');
+    console.log('系统信息:', systemInfo);
+    console.log('导出日志:', debugLog);
+    console.log('数据预览:', debugData.dataPreview);
+
+    // 格式化显示
+    const debugText = `
+调试信息报告
+生成时间: ${systemInfo.timestamp}
+
+===== 系统信息 =====
+浏览器: ${systemInfo.userAgent}
+平台: ${systemInfo.platform}
+语言: ${systemInfo.language}
+在线状态: ${systemInfo.onLine ? '在线' : '离线'}
+数据行数: ${systemInfo.dataRows}
+
+===== 导出日志 (最近${debugLog.length}条) =====
+${debugLog.map(log => `[${log.time}] ${log.message}${log.data ? '\n  数据: ' + JSON.stringify(log.data) : ''}`).join('\n')}
+
+===== 数据预览 (前3行) =====
+${JSON.stringify(debugData.dataPreview, null, 2)}
+
+===== 模板状态 =====
+模板数据已加载: ${typeof WORD_TEMPLATES !== 'undefined' ? '是' : '否'}
+${typeof WORD_TEMPLATES !== 'undefined' ? `可用模板: ${Object.keys(WORD_TEMPLATES).join(', ')}` : ''}
+
+===== 建议 =====
+1. 检查浏览器控制台是否有错误信息
+2. 确保数据已填写完整
+3. 如果导出失败，请查看上方的导出日志
+4. 可以将此报告复制并保存为文本文件
+    `.trim();
+
+    // 弹出对话框
+    if (confirm(debugText + '\n\n是否要下载这个调试报告？')) {
+        downloadDebugReport(debugText);
+    }
+
+    // 同时在页面上显示
+    alert('调试信息已输出到浏览器控制台（按F12查看）');
+}
+
+/**
+ * 下载调试报告
+ */
+function downloadDebugReport(debugText) {
+    const blob = new Blob([debugText], { type: 'text/plain;charset=utf-8' });
+    const filename = `debug_report_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+    saveAs(blob, filename);
+    showToast('调试报告已下载', 'success');
 }

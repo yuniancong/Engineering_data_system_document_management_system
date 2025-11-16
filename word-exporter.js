@@ -1,18 +1,41 @@
 /**
  * Word文档导出器 - 基于真实模板
  * 使用JSZip和XML DOM操作来填充模板数据
+ * 模板数据以base64格式内嵌，无需HTTP服务器
  */
 
 class WordExporter {
     constructor(dataManager) {
         this.dataManager = dataManager;
-        this.templates = {
-            directory: 'templates/表三、卷内目录.docx',
-            record: 'templates/表四、备考表.docx',
-            cover: 'templates/表二、档案封面.docx',
-            catalog: 'templates/表一、档案移交目录.docx',
-            transfer: 'templates/附件3-移交书.docx'
+        this.debugLog = []; // Debug日志
+    }
+
+    /**
+     * 记录debug信息
+     */
+    log(message, data = null) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = {
+            time: timestamp,
+            message: message,
+            data: data
         };
+        this.debugLog.push(logEntry);
+        console.log(`[${timestamp}] ${message}`, data || '');
+    }
+
+    /**
+     * 获取debug日志
+     */
+    getDebugLog() {
+        return this.debugLog;
+    }
+
+    /**
+     * 清空debug日志
+     */
+    clearDebugLog() {
+        this.debugLog = [];
     }
 
     /**
@@ -20,42 +43,63 @@ class WordExporter {
      */
     async exportDirectory() {
         try {
+            this.log('开始导出卷内目录');
             showToast('正在生成卷内目录...', 'success');
 
-            const templatePath = this.templates.directory;
             const data = this.dataManager.directoryData;
+            this.log('数据行数', data.length);
 
-            // 加载模板
-            const templateBlob = await this.loadTemplate(templatePath);
+            // 从内嵌的base64数据加载模板
+            this.log('加载模板数据');
+            const templateBlob = await this.loadTemplateFromBase64('directory');
+            this.log('模板加载成功', `大小: ${templateBlob.size} bytes`);
+
             const zip = await JSZip.loadAsync(templateBlob);
+            this.log('解析ZIP成功');
 
             // 读取document.xml
             const docXml = await zip.file('word/document.xml').async('string');
+            this.log('读取document.xml成功', `长度: ${docXml.length}`);
+
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(docXml, 'text/xml');
+
+            // 检查解析错误
+            const parseError = xmlDoc.querySelector('parsererror');
+            if (parseError) {
+                throw new Error('XML解析失败: ' + parseError.textContent);
+            }
+            this.log('XML解析成功');
 
             // 找到表格
             const table = xmlDoc.getElementsByTagName('w:tbl')[0];
             if (!table) {
                 throw new Error('模板中未找到表格');
             }
+            this.log('找到表格');
 
             // 获取所有行
             const rows = table.getElementsByTagName('w:tr');
+            this.log('表格行数', rows.length);
+
             if (rows.length < 4) {
-                throw new Error('模板表格格式不正确');
+                throw new Error('模板表格格式不正确，行数不足');
             }
 
             // 保留前3行（标题和表头），使用第4行作为模板
             const templateRow = rows[3].cloneNode(true);
+            this.log('克隆模板行成功');
 
             // 删除第4行及以后的所有行
+            let deletedCount = 0;
             while (rows.length > 3) {
                 table.removeChild(rows[3]);
+                deletedCount++;
             }
+            this.log('删除原有数据行', deletedCount);
 
             // 添加数据行
-            data.forEach(item => {
+            data.forEach((item, index) => {
                 const newRow = templateRow.cloneNode(true);
                 const cells = newRow.getElementsByTagName('w:tc');
 
@@ -68,24 +112,40 @@ class WordExporter {
                     this.setCellText(cells[4], item.date);            // 编制日期
                     this.setCellText(cells[5], item.pages);           // 页次
                     this.setCellText(cells[6], item.remark);          // 备注
+
+                    this.log(`添加数据行 ${index + 1}`, {
+                        serial: item.serial,
+                        title: item.title,
+                        fileNumber: item.fileNumber
+                    });
+                } else {
+                    this.log(`警告：行 ${index + 1} 单元格数量不足`, cells.length);
                 }
 
                 table.appendChild(newRow);
             });
+            this.log('所有数据行已添加');
 
             // 序列化XML
             const serializer = new XMLSerializer();
             const modifiedXml = serializer.serializeToString(xmlDoc);
+            this.log('XML序列化成功', `长度: ${modifiedXml.length}`);
 
             // 更新zip中的document.xml
             zip.file('word/document.xml', modifiedXml);
+            this.log('更新document.xml完成');
 
             // 生成新的docx文件
             const blob = await zip.generateAsync({type: 'blob'});
-            saveAs(blob, `卷内目录_${this.dataManager.getTodayDate()}.docx`);
+            this.log('生成DOCX文件成功', `大小: ${blob.size} bytes`);
+
+            const filename = `卷内目录_${this.dataManager.getTodayDate()}.docx`;
+            saveAs(blob, filename);
+            this.log('文件保存成功', filename);
 
             showToast('卷内目录已导出', 'success');
         } catch (error) {
+            this.log('导出失败', error.message);
             console.error('导出卷内目录失败:', error);
             showToast('导出失败: ' + error.message, 'error');
         }
@@ -146,6 +206,7 @@ class WordExporter {
 
             showToast('所有Word文档已导出完成', 'success');
         } catch (error) {
+            this.log('批量导出失败', error.message);
             console.error('导出失败:', error);
             showToast('部分文档导出失败', 'error');
         }
@@ -154,18 +215,40 @@ class WordExporter {
     // ========== 辅助方法 ==========
 
     /**
-     * 加载模板文件
+     * 从Base64数据加载模板
      */
-    async loadTemplate(templatePath) {
+    async loadTemplateFromBase64(templateName) {
         try {
-            const response = await fetch(templatePath);
-            if (!response.ok) {
-                throw new Error(`无法加载模板: ${templatePath}`);
+            this.log(`加载模板: ${templateName}`);
+
+            // 检查模板数据是否存在
+            if (typeof WORD_TEMPLATES === 'undefined') {
+                throw new Error('模板数据未加载，请确保word-templates-data.js已正确引入');
             }
-            return await response.blob();
+
+            const base64Data = WORD_TEMPLATES[templateName];
+            if (!base64Data) {
+                throw new Error(`模板 ${templateName} 不存在`);
+            }
+
+            this.log('Base64数据长度', base64Data.length);
+
+            // 将base64转换为Blob
+            const binaryString = atob(base64Data);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+
+            const blob = new Blob([bytes], {
+                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            });
+
+            this.log('Blob创建成功', `大小: ${blob.size}`);
+            return blob;
         } catch (error) {
-            console.error('加载模板失败:', error);
-            throw new Error('请确保通过HTTP服务器运行此应用（不能使用file://协议）');
+            this.log('加载模板失败', error.message);
+            throw new Error(`加载模板失败: ${error.message}`);
         }
     }
 
@@ -177,12 +260,12 @@ class WordExporter {
         if (textElements.length > 0) {
             textElements[0].textContent = text || '';
         } else {
-            // 如果没有文本元素，创建一个简单的结构
+            // 如果没有文本元素，尝试创建
             const para = cell.getElementsByTagName('w:p')[0];
             if (para) {
                 const run = para.getElementsByTagName('w:r')[0];
                 if (run) {
-                    const t = xmlDoc.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:t');
+                    const t = document.createElementNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main', 'w:t');
                     t.textContent = text || '';
                     run.appendChild(t);
                 }
@@ -333,6 +416,7 @@ ${html}
 
         const blob = new Blob(['\ufeff', fullHtml], {type: 'application/msword'});
         saveAs(blob, filename);
+        this.log('HTML格式文档已保存', filename);
     }
 }
 
