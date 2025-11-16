@@ -1,379 +1,392 @@
 /**
  * Word文档导出器
- * 使用docx.js库生成符合GB 50328-2014标准的Word文档
+ * 使用HTML格式生成.doc文件（浏览器完全兼容）
  */
 
 class WordExporter {
     constructor(dataManager) {
         this.dataManager = dataManager;
-        this.docx = window.docx;
     }
 
     /**
      * 导出卷内目录
      */
     async exportDirectory() {
-        const { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, AlignmentType, BorderStyle } = this.docx;
+        const data = this.dataManager.directoryData;
 
-        // 创建表格行
-        const tableRows = [
-            // 表头
-            new TableRow({
-                children: [
-                    this.createTableCell('序号', { bold: true, width: 8 }),
-                    this.createTableCell('文件编号', { bold: true, width: 15 }),
-                    this.createTableCell('责任者', { bold: true, width: 15 }),
-                    this.createTableCell('文件题名', { bold: true, width: 30 }),
-                    this.createTableCell('日期', { bold: true, width: 12 }),
-                    this.createTableCell('页次', { bold: true, width: 10 }),
-                    this.createTableCell('备注', { bold: true, width: 10 })
-                ]
-            }),
-            // 数据行
-            ...this.dataManager.directoryData.map(row =>
-                new TableRow({
-                    children: [
-                        this.createTableCell(row.serial.toString(), { width: 8 }),
-                        this.createTableCell(row.fileNumber, { width: 15 }),
-                        this.createTableCell(row.responsible, { width: 15 }),
-                        this.createTableCell(row.title, { width: 30 }),
-                        this.createTableCell(row.date, { width: 12 }),
-                        this.createTableCell(row.pages, { width: 10 }),
-                        this.createTableCell(row.remark, { width: 10 })
-                    ]
-                })
-            )
-        ];
+        let html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>卷内目录</title>
+    <style>
+        body { font-family: SimSun, "仿宋_GB2312"; font-size: 12pt; }
+        h1 { text-align: center; font-size: 16pt; font-weight: bold; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid black; padding: 5px; text-align: center; }
+        th { background-color: #f0f0f0; font-weight: bold; }
+        .footer { text-align: right; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>卷内目录</h1>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 8%;">序号</th>
+                <th style="width: 15%;">文件编号</th>
+                <th style="width: 15%;">责任者</th>
+                <th style="width: 30%;">文件题名</th>
+                <th style="width: 12%;">日期</th>
+                <th style="width: 10%;">页次</th>
+                <th style="width: 10%;">备注</th>
+            </tr>
+        </thead>
+        <tbody>
+`;
 
-        // 创建表格
-        const table = new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: tableRows
+        data.forEach(row => {
+            html += `
+            <tr>
+                <td>${row.serial}</td>
+                <td>${this.escapeHtml(row.fileNumber)}</td>
+                <td>${this.escapeHtml(row.responsible)}</td>
+                <td>${this.escapeHtml(row.title)}</td>
+                <td>${this.escapeHtml(row.date)}</td>
+                <td>${this.escapeHtml(row.pages)}</td>
+                <td>${this.escapeHtml(row.remark)}</td>
+            </tr>`;
         });
 
-        // 创建文档
-        const doc = new Document({
-            sections: [{
-                properties: {},
-                children: [
-                    new Paragraph({
-                        text: '卷内目录',
-                        heading: 'Heading1',
-                        alignment: AlignmentType.CENTER,
-                        spacing: { after: 300 }
-                    }),
-                    table,
-                    new Paragraph({
-                        text: `\n制表日期：${this.dataManager.getTodayDate()}`,
-                        alignment: AlignmentType.RIGHT,
-                        spacing: { before: 200 }
-                    })
-                ]
-            }]
-        });
+        html += `
+        </tbody>
+    </table>
+    <div class="footer">制表日期：${this.dataManager.getTodayDate()}</div>
+</body>
+</html>`;
 
-        await this.saveDocument(doc, `卷内目录_${this.dataManager.getTodayDate()}.docx`);
+        this.downloadAsWord(html, `卷内目录_${this.dataManager.getTodayDate()}.doc`);
     }
 
     /**
      * 导出卷内备考表
      */
     async exportRecord() {
-        const { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, AlignmentType } = this.docx;
-
         const data = this.dataManager.recordData;
 
-        const tableRows = [
-            this.createInfoRow('本案卷共有文件材料', `${data.totalPages || 0} 页`),
-            this.createInfoRow('其中：文字材料', `${data.textPages || 0} 页`),
-            this.createInfoRow('图样材料', `${data.drawingPages || 0} 页`),
-            this.createInfoRow('照片', `${data.photoCount || 0} 张`),
-            this.createInfoRow('说明', data.note || ''),
-            this.createInfoRow('立卷人', `${data.creator || ''}    日期：${data.createDate || ''}`),
-            this.createInfoRow('审核人', `${data.reviewer || ''}    日期：${data.reviewDate || ''}`)
-        ];
+        let html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>卷内备考表</title>
+    <style>
+        body { font-family: SimSun, "仿宋_GB2312"; font-size: 12pt; }
+        h1 { text-align: center; font-size: 16pt; font-weight: bold; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid black; padding: 8px; }
+        th { background-color: #f0f0f0; font-weight: bold; width: 30%; }
+        td { width: 70%; }
+    </style>
+</head>
+<body>
+    <h1>卷内备考表</h1>
+    <table>
+        <tr>
+            <th>本案卷共有文件材料</th>
+            <td>${data.totalPages || 0} 页</td>
+        </tr>
+        <tr>
+            <th>其中：文字材料</th>
+            <td>${data.textPages || 0} 页</td>
+        </tr>
+        <tr>
+            <th>图样材料</th>
+            <td>${data.drawingPages || 0} 页</td>
+        </tr>
+        <tr>
+            <th>照片</th>
+            <td>${data.photoCount || 0} 张</td>
+        </tr>
+        <tr>
+            <th>说明</th>
+            <td>${this.escapeHtml(data.note || '')}</td>
+        </tr>
+        <tr>
+            <th>立卷人</th>
+            <td>${this.escapeHtml(data.creator || '')}　　日期：${this.escapeHtml(data.createDate || '')}</td>
+        </tr>
+        <tr>
+            <th>审核人</th>
+            <td>${this.escapeHtml(data.reviewer || '')}　　日期：${this.escapeHtml(data.reviewDate || '')}</td>
+        </tr>
+    </table>
+</body>
+</html>`;
 
-        const table = new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: tableRows
-        });
-
-        const doc = new Document({
-            sections: [{
-                properties: {},
-                children: [
-                    new Paragraph({
-                        text: '卷内备考表',
-                        heading: 'Heading1',
-                        alignment: AlignmentType.CENTER,
-                        spacing: { after: 300 }
-                    }),
-                    table
-                ]
-            }]
-        });
-
-        await this.saveDocument(doc, `卷内备考表_${this.dataManager.getTodayDate()}.docx`);
+        this.downloadAsWord(html, `卷内备考表_${this.dataManager.getTodayDate()}.doc`);
     }
 
     /**
      * 导出案卷封面
      */
     async exportCover() {
-        const { Document, Packer, Paragraph, TextRun, AlignmentType } = this.docx;
-
         const data = this.dataManager.coverData;
 
-        const doc = new Document({
-            sections: [{
-                properties: {},
-                children: [
-                    new Paragraph({
-                        text: '案卷封面',
-                        heading: 'Heading1',
-                        alignment: AlignmentType.CENTER,
-                        spacing: { after: 400 }
-                    }),
-                    this.createInfoParagraph('档号', data.archiveNo || ''),
-                    this.createInfoParagraph('案卷题名', data.title || ''),
-                    this.createInfoParagraph('编制单位', data.unit || ''),
-                    this.createInfoParagraph('起止日期', `${data.startDate || ''} 至 ${data.endDate || ''}`),
-                    this.createInfoParagraph('密级', data.secretLevel || '无'),
-                    this.createInfoParagraph('保管期限', data.retentionPeriod || '永久'),
-                    this.createInfoParagraph('本工程共', `${data.totalVolumes || 1} 卷`),
-                    this.createInfoParagraph('本案卷为第', `${data.volumeNumber || 1} 卷`)
-                ]
-            }]
-        });
+        let html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>案卷封面</title>
+    <style>
+        body { font-family: SimSun, "仿宋_GB2312"; font-size: 14pt; padding: 40px; }
+        h1 { text-align: center; font-size: 18pt; font-weight: bold; margin: 30px 0; }
+        .info-row { margin: 25px 0; line-height: 2; }
+        .label { font-weight: bold; display: inline-block; width: 150px; }
+        .value { display: inline-block; }
+    </style>
+</head>
+<body>
+    <h1>案卷封面</h1>
+    <div class="info-row">
+        <span class="label">档号：</span>
+        <span class="value">${this.escapeHtml(data.archiveNo || '')}</span>
+    </div>
+    <div class="info-row">
+        <span class="label">案卷题名：</span>
+        <span class="value">${this.escapeHtml(data.title || '')}</span>
+    </div>
+    <div class="info-row">
+        <span class="label">编制单位：</span>
+        <span class="value">${this.escapeHtml(data.unit || '')}</span>
+    </div>
+    <div class="info-row">
+        <span class="label">起止日期：</span>
+        <span class="value">${this.escapeHtml(data.startDate || '')} 至 ${this.escapeHtml(data.endDate || '')}</span>
+    </div>
+    <div class="info-row">
+        <span class="label">密级：</span>
+        <span class="value">${this.escapeHtml(data.secretLevel || '无')}</span>
+    </div>
+    <div class="info-row">
+        <span class="label">保管期限：</span>
+        <span class="value">${this.escapeHtml(data.retentionPeriod || '永久')}</span>
+    </div>
+    <div class="info-row">
+        <span class="label">本工程共：</span>
+        <span class="value">${data.totalVolumes || 1} 卷</span>
+    </div>
+    <div class="info-row">
+        <span class="label">本案卷为第：</span>
+        <span class="value">${data.volumeNumber || 1} 卷</span>
+    </div>
+</body>
+</html>`;
 
-        await this.saveDocument(doc, `案卷封面_${this.dataManager.getTodayDate()}.docx`);
+        this.downloadAsWord(html, `案卷封面_${this.dataManager.getTodayDate()}.doc`);
     }
 
     /**
      * 导出案卷目录
      */
     async exportCatalog() {
-        const { Document, Packer, Paragraph, Table, TableCell, TableRow, WidthType, AlignmentType } = this.docx;
+        const data = this.dataManager.catalogData;
 
-        const tableRows = [
-            // 表头
-            new TableRow({
-                children: [
-                    this.createTableCell('案卷号', { bold: true, width: 10 }),
-                    this.createTableCell('案卷题名', { bold: true, width: 25 }),
-                    this.createTableCell('文字(页)', { bold: true, width: 10 }),
-                    this.createTableCell('图纸(张)', { bold: true, width: 10 }),
-                    this.createTableCell('其他', { bold: true, width: 10 }),
-                    this.createTableCell('编制单位', { bold: true, width: 15 }),
-                    this.createTableCell('编制日期', { bold: true, width: 10 }),
-                    this.createTableCell('保管期限', { bold: true, width: 10 })
-                ]
-            }),
-            // 数据行
-            ...this.dataManager.catalogData.map(entry =>
-                new TableRow({
-                    children: [
-                        this.createTableCell(entry.volumeNo.toString(), { width: 10 }),
-                        this.createTableCell(entry.title, { width: 25 }),
-                        this.createTableCell(entry.textPages.toString(), { width: 10 }),
-                        this.createTableCell(entry.drawingPages.toString(), { width: 10 }),
-                        this.createTableCell(entry.other || '', { width: 10 }),
-                        this.createTableCell(entry.unit, { width: 15 }),
-                        this.createTableCell(entry.createDate, { width: 10 }),
-                        this.createTableCell(entry.retentionPeriod, { width: 10 })
-                    ]
-                })
-            )
-        ];
+        let html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>案卷目录</title>
+    <style>
+        body { font-family: SimSun, "仿宋_GB2312"; font-size: 12pt; }
+        h1 { text-align: center; font-size: 16pt; font-weight: bold; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        th, td { border: 1px solid black; padding: 5px; text-align: center; }
+        th { background-color: #f0f0f0; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>案卷目录</h1>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 10%;">案卷号</th>
+                <th style="width: 25%;">案卷题名</th>
+                <th style="width: 10%;">文字(页)</th>
+                <th style="width: 10%;">图纸(张)</th>
+                <th style="width: 10%;">其他</th>
+                <th style="width: 15%;">编制单位</th>
+                <th style="width: 10%;">编制日期</th>
+                <th style="width: 10%;">保管期限</th>
+            </tr>
+        </thead>
+        <tbody>
+`;
 
-        const table = new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: tableRows
+        data.forEach(entry => {
+            html += `
+            <tr>
+                <td>${entry.volumeNo}</td>
+                <td>${this.escapeHtml(entry.title)}</td>
+                <td>${entry.textPages}</td>
+                <td>${entry.drawingPages}</td>
+                <td>${this.escapeHtml(entry.other || '')}</td>
+                <td>${this.escapeHtml(entry.unit)}</td>
+                <td>${this.escapeHtml(entry.createDate)}</td>
+                <td>${this.escapeHtml(entry.retentionPeriod)}</td>
+            </tr>`;
         });
 
-        const doc = new Document({
-            sections: [{
-                properties: {},
-                children: [
-                    new Paragraph({
-                        text: '案卷目录',
-                        heading: 'Heading1',
-                        alignment: AlignmentType.CENTER,
-                        spacing: { after: 300 }
-                    }),
-                    table
-                ]
-            }]
-        });
+        html += `
+        </tbody>
+    </table>
+</body>
+</html>`;
 
-        await this.saveDocument(doc, `案卷目录_${this.dataManager.getTodayDate()}.docx`);
+        this.downloadAsWord(html, `案卷目录_${this.dataManager.getTodayDate()}.doc`);
     }
 
     /**
      * 导出档案移交书
      */
     async exportTransfer() {
-        const { Document, Packer, Paragraph, Table, TableCell, TableRow, TextRun, WidthType, AlignmentType } = this.docx;
-
         const data = this.dataManager.coverData;
         const recordData = this.dataManager.recordData;
 
-        const doc = new Document({
-            sections: [{
-                properties: {},
-                children: [
-                    new Paragraph({
-                        text: '档案移交书',
-                        heading: 'Heading1',
-                        alignment: AlignmentType.CENTER,
-                        spacing: { after: 400 }
-                    }),
-                    new Paragraph({
-                        text: `工程名称：${data.title || ''}`,
-                        spacing: { after: 200 }
-                    }),
-                    new Paragraph({
-                        text: `移交单位：${data.unit || ''}`,
-                        spacing: { after: 200 }
-                    }),
-                    new Paragraph({
-                        text: `移交日期：${this.dataManager.getTodayDate()}`,
-                        spacing: { after: 200 }
-                    }),
-                    new Paragraph({
-                        text: `案卷数量：${data.totalVolumes || 1} 卷`,
-                        spacing: { after: 200 }
-                    }),
-                    new Paragraph({
-                        text: `文件总页数：${recordData.totalPages || 0} 页`,
-                        spacing: { after: 200 }
-                    }),
-                    new Paragraph({
-                        text: '移交说明：',
-                        spacing: { after: 100 }
-                    }),
-                    new Paragraph({
-                        text: recordData.note || '本工程档案资料已按GB 50328-2014标准整理完毕，现移交存档。',
-                        spacing: { after: 400 }
-                    }),
-                    new Paragraph({
-                        text: '移交人签字：_______________    日期：_______________',
-                        spacing: { after: 200 }
-                    }),
-                    new Paragraph({
-                        text: '接收人签字：_______________    日期：_______________',
-                        spacing: { after: 200 }
-                    })
-                ]
-            }]
-        });
+        let html = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>档案移交书</title>
+    <style>
+        body { font-family: SimSun, "仿宋_GB2312"; font-size: 14pt; padding: 40px; }
+        h1 { text-align: center; font-size: 18pt; font-weight: bold; margin: 30px 0; }
+        .info-row { margin: 20px 0; line-height: 2; }
+        .signature { margin-top: 40px; line-height: 2.5; }
+    </style>
+</head>
+<body>
+    <h1>档案移交书</h1>
+    <div class="info-row">
+        <strong>工程名称：</strong>${this.escapeHtml(data.title || '')}
+    </div>
+    <div class="info-row">
+        <strong>移交单位：</strong>${this.escapeHtml(data.unit || '')}
+    </div>
+    <div class="info-row">
+        <strong>移交日期：</strong>${this.dataManager.getTodayDate()}
+    </div>
+    <div class="info-row">
+        <strong>案卷数量：</strong>${data.totalVolumes || 1} 卷
+    </div>
+    <div class="info-row">
+        <strong>文件总页数：</strong>${recordData.totalPages || 0} 页
+    </div>
+    <div class="info-row">
+        <strong>移交说明：</strong>
+    </div>
+    <div class="info-row" style="margin-left: 40px;">
+        ${this.escapeHtml(recordData.note || '本工程档案资料已按GB 50328-2014标准整理完毕，现移交存档。')}
+    </div>
+    <div class="signature">
+        移交人签字：_______________　　日期：_______________
+    </div>
+    <div class="signature">
+        接收人签字：_______________　　日期：_______________
+    </div>
+</body>
+</html>`;
 
-        await this.saveDocument(doc, `档案移交书_${this.dataManager.getTodayDate()}.docx`);
+        this.downloadAsWord(html, `档案移交书_${this.dataManager.getTodayDate()}.doc`);
     }
 
     /**
-     * 导出所有文档（打包为zip）
+     * 导出所有文档
      */
     async exportAll() {
         showToast('正在生成所有Word文档，请稍候...', 'success');
 
-        // 依次导出所有文档
-        await this.exportDirectory();
-        await new Promise(resolve => setTimeout(resolve, 500));
+        try {
+            await this.exportDirectory();
+            await this.delay(500);
 
-        await this.exportRecord();
-        await new Promise(resolve => setTimeout(resolve, 500));
+            await this.exportRecord();
+            await this.delay(500);
 
-        await this.exportCover();
-        await new Promise(resolve => setTimeout(resolve, 500));
+            await this.exportCover();
+            await this.delay(500);
 
-        await this.exportCatalog();
-        await new Promise(resolve => setTimeout(resolve, 500));
+            await this.exportCatalog();
+            await this.delay(500);
 
-        await this.exportTransfer();
+            await this.exportTransfer();
 
-        showToast('所有Word文档已导出完成', 'success');
+            showToast('所有Word文档已导出完成', 'success');
+        } catch (error) {
+            console.error('导出失败:', error);
+            showToast('部分文档导出失败', 'error');
+        }
     }
 
     // ========== 辅助方法 ==========
 
     /**
-     * 创建表格单元格
+     * HTML转义
      */
-    createTableCell(text, options = {}) {
-        const { TableCell, Paragraph, TextRun, WidthType, AlignmentType, BorderStyle } = this.docx;
-
-        return new TableCell({
-            width: { size: options.width || 10, type: WidthType.PERCENTAGE },
-            children: [
-                new Paragraph({
-                    alignment: AlignmentType.CENTER,
-                    children: [
-                        new TextRun({
-                            text: text,
-                            bold: options.bold || false,
-                            size: 22,
-                            font: 'SimSun'
-                        })
-                    ]
-                })
-            ]
-        });
+    escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     /**
-     * 创建信息行（用于备考表）
+     * 延迟函数
      */
-    createInfoRow(label, value) {
-        const { TableRow } = this.docx;
-
-        return new TableRow({
-            children: [
-                this.createTableCell(label, { bold: true, width: 30 }),
-                this.createTableCell(value, { width: 70 })
-            ]
-        });
+    delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     /**
-     * 创建信息段落（用于封面）
+     * 下载为Word文档
      */
-    createInfoParagraph(label, value) {
-        const { Paragraph, TextRun } = this.docx;
+    downloadAsWord(html, filename) {
+        // 添加Microsoft Word的XML命名空间和样式
+        const fullHtml = `
+<html xmlns:o='urn:schemas-microsoft-com:office:office'
+      xmlns:w='urn:schemas-microsoft-com:office:word'
+      xmlns='http://www.w3.org/TR/REC-html40'>
+<head>
+    <meta charset='utf-8'>
+    <meta name=ProgId content=Word.Document>
+    <meta name=Generator content="Microsoft Word">
+    <meta name=Originator content="Microsoft Word">
+    <!--[if gte mso 9]>
+    <xml>
+        <w:WordDocument>
+            <w:View>Print</w:View>
+            <w:Zoom>90</w:Zoom>
+            <w:DoNotOptimizeForBrowser/>
+        </w:WordDocument>
+    </xml>
+    <![endif]-->
+</head>
+${html}
+</html>`;
 
-        return new Paragraph({
-            spacing: { after: 200 },
-            children: [
-                new TextRun({
-                    text: `${label}：`,
-                    bold: true,
-                    size: 28,
-                    font: 'SimSun'
-                }),
-                new TextRun({
-                    text: value,
-                    size: 28,
-                    font: 'SimSun'
-                })
-            ]
+        // 创建Blob
+        const blob = new Blob(['\ufeff', fullHtml], {
+            type: 'application/msword'
         });
-    }
 
-    /**
-     * 保存文档
-     */
-    async saveDocument(doc, filename) {
-        const { Packer } = this.docx;
+        // 使用FileSaver下载
+        saveAs(blob, filename);
 
-        try {
-            const blob = await Packer.toBlob(doc);
-            saveAs(blob, filename);
-            console.log(`Word文档已导出: ${filename}`);
-        } catch (error) {
-            console.error('导出Word文档失败:', error);
-            showToast('导出Word文档失败', 'error');
-            throw error;
-        }
+        console.log(`Word文档已导出: ${filename}`);
     }
 }
 
