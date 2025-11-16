@@ -104,9 +104,15 @@ function initDirectory() {
         showToast('已自动生成所有表格', 'success');
     });
 
-    // 粘贴整行（批量粘贴）
+    // 粘贴整行（批量粘贴 - 默认顺序）
     pasteRowBtn.addEventListener('click', async () => {
         await pasteWholeRows();
+    });
+
+    // 自定义粘贴（打开对话框）
+    const pasteRowCustomBtn = document.getElementById('pasteRowCustomBtn');
+    pasteRowCustomBtn.addEventListener('click', () => {
+        openCustomPasteDialog();
     });
 
     // 切换列粘贴模式
@@ -752,3 +758,171 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('beforeunload', () => {
     dataManager.saveToLocalStorage();
 });
+
+// ========== 自定义粘贴功能 ==========
+let clipboardDataForCustomPaste = null; // 暂存剪贴板数据
+
+/**
+ * 打开自定义粘贴对话框
+ */
+async function openCustomPasteDialog() {
+    try {
+        // 读取剪贴板
+        const text = await navigator.clipboard.readText();
+
+        if (!text || !text.trim()) {
+            showToast('剪贴板内容为空', 'warning');
+            return;
+        }
+
+        // 保存剪贴板数据
+        clipboardDataForCustomPaste = text;
+
+        // 显示对话框
+        const dialog = document.getElementById('pasteCustomDialog');
+        dialog.style.display = 'block';
+
+        // 初始化事件监听（只初始化一次）
+        if (!dialog.dataset.initialized) {
+            initCustomPasteDialog();
+            dialog.dataset.initialized = 'true';
+        }
+
+    } catch (error) {
+        console.error('读取剪贴板失败:', error);
+        showToast('读取剪贴板失败，请确保已授权', 'error');
+    }
+}
+
+/**
+ * 初始化自定义粘贴对话框
+ */
+function initCustomPasteDialog() {
+    // 关闭按钮
+    document.getElementById('closeCustomDialog').addEventListener('click', closeCustomPasteDialog);
+    document.getElementById('cancelCustomPaste').addEventListener('click', closeCustomPasteDialog);
+
+    // 点击背景关闭
+    document.getElementById('pasteCustomDialog').addEventListener('click', (e) => {
+        if (e.target.id === 'pasteCustomDialog') {
+            closeCustomPasteDialog();
+        }
+    });
+
+    // 确定粘贴按钮
+    document.getElementById('confirmCustomPaste').addEventListener('click', executeCustomPaste);
+
+    // 预设按钮
+    document.getElementById('presetDefault').addEventListener('click', () => {
+        setColumnMapping(['fileNumber', 'responsible', 'title', 'date', 'pages', 'remark']);
+    });
+
+    document.getElementById('presetTitleOnly').addEventListener('click', () => {
+        setColumnMapping(['title', '', '', '', '', '']);
+    });
+
+    document.getElementById('presetTitleDate').addEventListener('click', () => {
+        setColumnMapping(['title', 'date', '', '', '', '']);
+    });
+}
+
+/**
+ * 关闭自定义粘贴对话框
+ */
+function closeCustomPasteDialog() {
+    document.getElementById('pasteCustomDialog').style.display = 'none';
+    clipboardDataForCustomPaste = null;
+}
+
+/**
+ * 设置列映射
+ */
+function setColumnMapping(mapping) {
+    const selects = document.querySelectorAll('.column-select');
+    selects.forEach((select, index) => {
+        if (index < mapping.length) {
+            select.value = mapping[index] || '';
+        }
+    });
+}
+
+/**
+ * 执行自定义粘贴
+ */
+function executeCustomPaste() {
+    if (!clipboardDataForCustomPaste) {
+        showToast('没有可粘贴的数据', 'warning');
+        closeCustomPasteDialog();
+        return;
+    }
+
+    // 获取列映射
+    const selects = document.querySelectorAll('.column-select');
+    const columnMapping = [];
+    selects.forEach(select => {
+        columnMapping.push(select.value);
+    });
+
+    // 检查是否至少选择了一列
+    const hasMapping = columnMapping.some(value => value !== '');
+    if (!hasMapping) {
+        showToast('请至少选择一列进行映射', 'warning');
+        return;
+    }
+
+    // 执行粘贴
+    pasteWholeRowsWithMapping(clipboardDataForCustomPaste, columnMapping);
+
+    // 关闭对话框
+    closeCustomPasteDialog();
+}
+
+/**
+ * 使用自定义列映射粘贴整行数据
+ */
+function pasteWholeRowsWithMapping(text, columnMapping) {
+    try {
+        // 按行分割
+        const rows = text.trim().split('\n').filter(line => line.trim());
+
+        if (rows.length === 0) {
+            showToast('没有有效数据可粘贴', 'warning');
+            return;
+        }
+
+        let pastedRowCount = 0;
+
+        rows.forEach(rowText => {
+            // 检测是否包含制表符（Tab），如果有则按Tab分割
+            let columns;
+            if (rowText.includes('\t')) {
+                columns = rowText.split('\t');
+            } else {
+                columns = [rowText];
+            }
+
+            // 创建新行
+            const newRow = dataManager.addDirectoryRow();
+
+            // 根据自定义映射填充数据
+            columns.forEach((value, index) => {
+                const trimmedValue = value.trim();
+                if (trimmedValue && index < columnMapping.length && columnMapping[index]) {
+                    const field = columnMapping[index];
+                    dataManager.updateDirectoryRow(newRow.id, field, trimmedValue);
+                }
+            });
+
+            pastedRowCount++;
+        });
+
+        // 重新分配序号并渲染表格
+        dataManager.reorderDirectory();
+        renderDirectoryTable();
+
+        showToast(`已粘贴 ${pastedRowCount} 行数据`, 'success');
+    } catch (error) {
+        console.error('自定义粘贴失败:', error);
+        showToast('粘贴失败', 'error');
+    }
+}
