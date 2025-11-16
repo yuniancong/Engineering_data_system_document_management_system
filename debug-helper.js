@@ -1,0 +1,334 @@
+/**
+ * 调试和诊断工具
+ * 用于检查模板、数据和导出功能的状态
+ */
+
+class DebugHelper {
+    constructor(dataManager, wordExporter) {
+        this.dataManager = dataManager;
+        this.wordExporter = wordExporter;
+    }
+
+    /**
+     * 显示调试面板
+     */
+    showDebugPanel() {
+        const panel = document.createElement('div');
+        panel.id = 'debug-panel';
+        panel.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            font-family: monospace;
+            font-size: 12px;
+        `;
+
+        panel.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="margin: 0;">🔍 调试面板</h3>
+                <button onclick="document.getElementById('debug-panel').remove()" style="background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">关闭</button>
+            </div>
+            <div id="debug-content"></div>
+        `;
+
+        document.body.appendChild(panel);
+        this.updateDebugInfo();
+    }
+
+    /**
+     * 更新调试信息
+     */
+    updateDebugInfo() {
+        const content = document.getElementById('debug-content');
+        if (!content) return;
+
+        const html = `
+            <div style="margin-bottom: 15px;">
+                <h4 style="margin: 10px 0 5px 0; color: #2196F3;">📊 数据状态</h4>
+                ${this.checkDataStatus()}
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <h4 style="margin: 10px 0 5px 0; color: #4CAF50;">📄 模板状态</h4>
+                ${this.checkTemplateStatus()}
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <h4 style="margin: 10px 0 5px 0; color: #FF9800;">🔧 快速操作</h4>
+                ${this.getQuickActions()}
+            </div>
+        `;
+
+        content.innerHTML = html;
+    }
+
+    /**
+     * 检查数据状态
+     */
+    checkDataStatus() {
+        const recordData = this.dataManager.recordData;
+        const coverData = this.dataManager.coverData;
+        const directoryData = this.dataManager.directoryData;
+        const catalogData = this.dataManager.catalogData;
+
+        return `
+            <div style="background: #f5f5f5; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                <strong>卷内目录：</strong> ${directoryData.length} 行<br>
+                <strong>备考表数据：</strong><br>
+                <div style="margin-left: 15px;">
+                    总页数: ${recordData.totalPages || '<span style="color: red;">未设置</span>'}<br>
+                    文字页: ${recordData.textPages || '<span style="color: red;">未设置</span>'}<br>
+                    图样页: ${recordData.drawingPages || '<span style="color: red;">未设置</span>'}<br>
+                    照片数: ${recordData.photoCount || '<span style="color: red;">未设置</span>'}<br>
+                    立卷人: ${recordData.creator || '<span style="color: red;">未设置</span>'}<br>
+                    审核人: ${recordData.reviewer || '<span style="color: red;">未设置</span>'}
+                </div>
+                <strong>封面数据：</strong><br>
+                <div style="margin-left: 15px;">
+                    档号: ${coverData.archiveNo || '<span style="color: red;">未设置</span>'}<br>
+                    题名: ${coverData.title || '<span style="color: red;">未设置</span>'}<br>
+                    单位: ${coverData.unit || '<span style="color: red;">未设置</span>'}<br>
+                    起止日期: ${coverData.startDate || '?'} ~ ${coverData.endDate || '?'}
+                </div>
+                <strong>案卷目录：</strong> ${catalogData.length} 卷
+            </div>
+        `;
+    }
+
+    /**
+     * 检查模板状态
+     */
+    checkTemplateStatus() {
+        return `
+            <div style="background: #f5f5f5; padding: 10px; border-radius: 4px;">
+                <p style="margin: 5px 0;">
+                    <strong>提示：</strong>备考表、封面、移交书需要在模板中添加占位符才能正常导出数据。
+                </p>
+                <button onclick="debugHelper.showTemplateGuide()" style="background: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 10px;">
+                    📖 查看模板配置指南
+                </button>
+                <button onclick="debugHelper.testTemplateExport()" style="background: #4CAF50; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 5px;">
+                    🧪 测试导出功能
+                </button>
+            </div>
+        `;
+    }
+
+    /**
+     * 获取快速操作按钮
+     */
+    getQuickActions() {
+        return `
+            <div style="background: #f5f5f5; padding: 10px; border-radius: 4px;">
+                <button onclick="debugHelper.autoGenerateAll()" style="background: #FF9800; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 5px;">
+                    ⚡ 自动生成所有数据
+                </button>
+                <button onclick="debugHelper.exportDataJSON()" style="background: #9C27B0; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 5px;">
+                    💾 导出数据JSON
+                </button>
+                <button onclick="debugHelper.viewStorageData()" style="background: #607D8B; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%;">
+                    🗄️ 查看存储数据
+                </button>
+            </div>
+        `;
+    }
+
+    /**
+     * 显示模板配置指南
+     */
+    showTemplateGuide() {
+        const guide = `
+# Word模板配置指南
+
+## 问题原因
+备考表和封面导出为空，是因为模板文件中没有添加占位符。
+
+## 解决方法
+
+### 1. 编辑模板文件
+打开以下模板文件并添加占位符：
+
+**表四、卷内备考表.docx：**
+本案卷共有文件材料 {{totalPages}} 页
+其中：文字材料 {{textPages}} 页
+图样材料 {{drawingPages}} 页
+照片 {{photoCount}} 张
+说明：{{note}}
+立卷人：{{creator}}  日期：{{createDate}}
+审核人：{{reviewer}}  日期：{{reviewDate}}
+
+**表二、档案封面.docx：**
+档号：{{archiveNo}}
+案卷题名：{{title}}
+编制单位：{{unit}}
+起止日期：{{startDate}} 至 {{endDate}}
+密级：{{secretLevel}}
+保管期限：{{retentionPeriod}}
+本工程共：{{totalVolumes}} 卷
+本案卷为第：{{volumeNumber}} 卷
+
+### 2. 保存模板
+编辑完成后保存模板文件到 templates/ 目录
+
+### 3. 重新导出
+再次点击导出按钮，数据将自动填充
+
+## 详细说明
+查看文件：templates/模板占位符说明.md
+        `;
+
+        alert(guide);
+        console.log(guide);
+    }
+
+    /**
+     * 测试模板导出
+     */
+    async testTemplateExport() {
+        const result = {
+            directory: false,
+            record: false,
+            cover: false,
+            catalog: false
+        };
+
+        try {
+            console.log('🧪 开始测试导出功能...');
+
+            // 测试备考表数据
+            console.log('备考表数据：', this.dataManager.recordData);
+            result.record = !!this.dataManager.recordData.totalPages;
+
+            // 测试封面数据
+            console.log('封面数据：', this.dataManager.coverData);
+            result.cover = !!this.dataManager.coverData.title;
+
+            // 测试卷内目录数据
+            console.log('卷内目录数据：', this.dataManager.directoryData);
+            result.directory = this.dataManager.directoryData.length > 0;
+
+            // 测试案卷目录数据
+            console.log('案卷目录数据：', this.dataManager.catalogData);
+            result.catalog = this.dataManager.catalogData.length > 0;
+
+            const summary = `
+测试结果：
+✅ 卷内目录数据：${result.directory ? '有数据' : '⚠️ 无数据'}
+${result.record ? '✅' : '⚠️'} 备考表数据：${result.record ? '有数据' : '无数据或不完整'}
+${result.cover ? '✅' : '⚠️'} 封面数据：${result.cover ? '有数据' : '无数据或不完整'}
+${result.catalog ? '✅' : '⚠️'} 案卷目录数据：${result.catalog ? '有数据' : '无数据'}
+
+${(!result.record || !result.cover) ? '\n⚠️ 建议：先点击"自动生成其他表格"按钮生成数据' : ''}
+            `;
+
+            alert(summary);
+            console.log(summary);
+        } catch (error) {
+            console.error('测试失败：', error);
+            alert('测试失败：' + error.message);
+        }
+    }
+
+    /**
+     * 自动生成所有数据
+     */
+    autoGenerateAll() {
+        try {
+            this.dataManager.autoGenerateAll();
+            renderRecordForm();
+            renderCoverForm();
+            renderCatalogTable();
+            this.updateDebugInfo();
+            showToast('已自动生成所有表格数据', 'success');
+        } catch (error) {
+            console.error('自动生成失败：', error);
+            showToast('自动生成失败：' + error.message, 'error');
+        }
+    }
+
+    /**
+     * 导出数据为JSON
+     */
+    exportDataJSON() {
+        const data = {
+            directory: this.dataManager.directoryData,
+            record: this.dataManager.recordData,
+            cover: this.dataManager.coverData,
+            catalog: this.dataManager.catalogData,
+            exportTime: new Date().toISOString()
+        };
+
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `调试数据_${this.dataManager.getTodayDate()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        showToast('数据已导出为JSON', 'success');
+    }
+
+    /**
+     * 查看存储数据
+     */
+    viewStorageData() {
+        const data = localStorage.getItem('archiveData');
+        if (data) {
+            console.log('LocalStorage 数据：', JSON.parse(data));
+            alert('数据已输出到控制台，按F12查看');
+        } else {
+            alert('本地存储中没有数据');
+        }
+    }
+
+    /**
+     * 创建调试按钮
+     */
+    createDebugButton() {
+        const button = document.createElement('button');
+        button.innerHTML = '🔍 调试';
+        button.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 9999;
+        `;
+        button.onclick = () => this.showDebugPanel();
+        document.body.appendChild(button);
+    }
+}
+
+// 全局调试助手实例（在dataManager和wordExporter初始化后创建）
+let debugHelper = null;
+
+// 页面加载完成后初始化调试助手
+document.addEventListener('DOMContentLoaded', function() {
+    // 等待其他组件初始化
+    setTimeout(() => {
+        if (typeof dataManager !== 'undefined' && typeof wordExporter !== 'undefined') {
+            debugHelper = new DebugHelper(dataManager, wordExporter);
+            debugHelper.createDebugButton();
+            console.log('🔍 调试助手已启用。点击右下角按钮打开调试面板。');
+        }
+    }, 1000);
+});
