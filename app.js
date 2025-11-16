@@ -585,6 +585,7 @@ function initDataActions() {
     const saveBtn = document.getElementById('saveDataBtn');
     const loadBtn = document.getElementById('loadDataBtn');
     const exportBtn = document.getElementById('exportDataBtn');
+    const exportWordBtn = document.getElementById('exportWordBtn');
     const clearBtn = document.getElementById('clearDataBtn');
 
     saveBtn.addEventListener('click', () => {
@@ -603,6 +604,11 @@ function initDataActions() {
 
     exportBtn.addEventListener('click', () => {
         exportToExcel();
+    });
+
+    // Word导出按钮
+    exportWordBtn.addEventListener('click', () => {
+        openWordExportDialog();
     });
 
     clearBtn.addEventListener('click', () => {
@@ -924,5 +930,94 @@ function pasteWholeRowsWithMapping(text, columnMapping) {
     } catch (error) {
         console.error('自定义粘贴失败:', error);
         showToast('粘贴失败', 'error');
+    }
+}
+
+// ========== Word导出对话框功能 ==========
+
+/**
+ * 打开Word导出对话框
+ */
+function openWordExportDialog() {
+    const dialog = document.getElementById('wordExportDialog');
+    dialog.style.display = 'block';
+
+    // 初始化事件监听（只初始化一次）
+    if (!dialog.dataset.initialized) {
+        initWordExportDialog();
+        dialog.dataset.initialized = 'true';
+    }
+}
+
+/**
+ * 初始化Word导出对话框
+ */
+function initWordExportDialog() {
+    // 关闭按钮
+    document.getElementById('closeWordExportDialog').addEventListener('click', closeWordExportDialog);
+    document.getElementById('cancelWordExport').addEventListener('click', closeWordExportDialog);
+
+    // 点击背景关闭
+    document.getElementById('wordExportDialog').addEventListener('click', (e) => {
+        if (e.target.id === 'wordExportDialog') {
+            closeWordExportDialog();
+        }
+    });
+
+    // 导出选项按钮
+    const exportButtons = document.querySelectorAll('.export-option-btn');
+    exportButtons.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const template = btn.dataset.template;
+            await handleWordExport(template);
+            closeWordExportDialog();
+        });
+    });
+}
+
+/**
+ * 关闭Word导出对话框
+ */
+function closeWordExportDialog() {
+    document.getElementById('wordExportDialog').style.display = 'none';
+}
+
+/**
+ * 处理Word导出
+ */
+async function handleWordExport(template) {
+    try {
+        showToast('正在生成Word文档，请稍候...', 'success');
+
+        switch (template) {
+            case 'directory':
+                await wordExporter.exportDirectory();
+                showToast('卷内目录已导出', 'success');
+                break;
+            case 'record':
+                await wordExporter.exportRecord();
+                showToast('卷内备考表已导出', 'success');
+                break;
+            case 'cover':
+                await wordExporter.exportCover();
+                showToast('案卷封面已导出', 'success');
+                break;
+            case 'catalog':
+                await wordExporter.exportCatalog();
+                showToast('案卷目录已导出', 'success');
+                break;
+            case 'transfer':
+                await wordExporter.exportTransfer();
+                showToast('档案移交书已导出', 'success');
+                break;
+            case 'all':
+                await wordExporter.exportAll();
+                break;
+            default:
+                showToast('未知的导出类型', 'error');
+        }
+    } catch (error) {
+        console.error('Word导出失败:', error);
+        showToast('Word导出失败: ' + error.message, 'error');
     }
 }

@@ -624,3 +624,35 @@ footer p {
         transform: rotate(360deg);
     }
 }
+
+/* Word导出选择对话框 */
+.export-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.export-option-btn {
+    padding: 20px 15px;
+    font-size: 16px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60px;
+    white-space: normal;
+    line-height: 1.4;
+}
+
+.export-option-btn[data-template="all"] {
+    grid-column: 1 / -1;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .export-options {
+        grid-template-columns: 1fr;
+    }
+}
