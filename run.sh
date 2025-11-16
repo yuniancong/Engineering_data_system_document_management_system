@@ -2,15 +2,16 @@
 # 一键启动脚本 - 工程资料归档管理系统
 # 自动激活虚拟环境、启动HTTP服务器并打开浏览器
 
-PORT=8000
-URL="http://localhost:$PORT"
+# 默认端口
+DEFAULT_PORT=8000
+PORT=$DEFAULT_PORT
 
 # 清屏
 clear
 
 echo "=========================================="
 echo "   工程资料归档管理系统"
-echo "   一键启动脚本 v1.0"
+echo "   一键启动脚本 v1.1"
 echo "=========================================="
 echo ""
 
@@ -51,22 +52,61 @@ else
 fi
 
 # 检查端口是否被占用
-check_port() {
+is_port_in_use() {
+    local port=$1
     if command -v lsof &> /dev/null; then
-        if lsof -Pi :$PORT -sTCP:LISTEN -t &> /dev/null; then
-            echo "⚠️  警告: 端口 $PORT 已被占用"
-            echo "请关闭占用该端口的程序，或修改脚本中的 PORT 变量"
-            echo ""
-            read -p "是否继续尝试启动？(y/N) " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                exit 1
-            fi
-        fi
+        lsof -Pi :$port -sTCP:LISTEN -t &> /dev/null
+        return $?
+    elif command -v netstat &> /dev/null; then
+        netstat -an | grep ":$port " | grep -q LISTEN
+        return $?
+    else
+        # 如果没有可用的检测工具，假设端口可用
+        return 1
     fi
 }
 
-check_port
+# 查找可用端口
+find_available_port() {
+    local start_port=$1
+    local max_attempts=10
+    local current_port=$start_port
+
+    for ((i=0; i<max_attempts; i++)); do
+        if ! is_port_in_use $current_port; then
+            PORT=$current_port
+            return 0
+        fi
+        current_port=$((current_port + 1))
+    done
+
+    return 1
+}
+
+# 检查并处理端口占用
+echo "🔍 检查端口可用性..."
+if is_port_in_use $DEFAULT_PORT; then
+    echo "⚠️  端口 $DEFAULT_PORT 已被占用"
+    echo "🔄 正在查找可用端口..."
+
+    if find_available_port $((DEFAULT_PORT + 1)); then
+        echo "✓ 找到可用端口: $PORT"
+        echo ""
+    else
+        echo "❌ 错误: 无法找到可用端口 (尝试了 $DEFAULT_PORT-$((DEFAULT_PORT + 9)))"
+        echo ""
+        echo "建议："
+        echo "  1. 关闭占用这些端口的其他程序"
+        echo "  2. 手动指定端口: PORT=9000 ./run.sh"
+        echo ""
+        exit 1
+    fi
+else
+    echo "✓ 端口 $PORT 可用"
+    echo ""
+fi
+
+URL="http://localhost:$PORT"
 
 # 自动打开浏览器的函数
 open_browser() {
