@@ -4,8 +4,16 @@
  */
 
 // ========== 全局变量 ==========
-let clipboardMode = false; // 点按模式开关
+let clipboardMode = false; // 列粘贴模式开关
 let selectedClipboardColumn = null; // 当前选中的列
+let clipboardPermissionGranted = false; // 剪贴板权限是否已授予
+
+// ========== 初始化剪贴板权限状态 ==========
+// 从localStorage读取权限状态
+const savedPermission = localStorage.getItem('clipboardPermissionGranted');
+if (savedPermission === 'true') {
+    clipboardPermissionGranted = true;
+}
 
 // ========== 页面加载完成后初始化 ==========
 document.addEventListener('DOMContentLoaded', function() {
@@ -66,13 +74,15 @@ function initDirectory() {
     const addRowBtn = document.getElementById('addRowBtn');
     const deleteRowBtn = document.getElementById('deleteRowBtn');
     const autoGenerateBtn = document.getElementById('autoGenerateBtn');
+    const pasteRowBtn = document.getElementById('pasteRowBtn');
     const clipboardToggle = document.getElementById('clipboardModeToggle');
     const selectAllCheckbox = document.getElementById('selectAll');
 
     // 添加行
     addRowBtn.addEventListener('click', () => {
         const row = dataManager.addDirectoryRow();
-        appendDirectoryRow(row);
+        dataManager.reorderDirectory(); // 重新分配序号
+        renderDirectoryTable(); // 重新渲染整个表格以更新序号
         showToast('已添加新行');
     });
 
@@ -94,17 +104,31 @@ function initDirectory() {
         showToast('已自动生成所有表格', 'success');
     });
 
-    // 切换点按模式
-    clipboardToggle.addEventListener('change', (e) => {
+    // 粘贴整行（批量粘贴）
+    pasteRowBtn.addEventListener('click', async () => {
+        await pasteWholeRows();
+    });
+
+    // 切换列粘贴模式
+    clipboardToggle.addEventListener('change', async (e) => {
         clipboardMode = e.target.checked;
         const clipboardButtons = document.getElementById('clipboardButtons');
-        clipboardButtons.style.display = clipboardMode ? 'grid' : 'none';
+        clipboardButtons.style.display = clipboardMode ? 'flex' : 'none';
 
         if (clipboardMode) {
-            initClipboardButtons();
-            showToast('点按模式已启用，点击列按钮可粘贴剪贴板内容', 'success');
+            // 启用时预先请求剪贴板权限
+            const granted = await requestClipboardPermission();
+            if (granted) {
+                initClipboardButtons();
+                showToast('列粘贴模式已启用', 'success');
+            } else {
+                // 如果权限被拒绝，取消勾选
+                clipboardToggle.checked = false;
+                clipboardMode = false;
+                showToast('需要授权剪贴板权限才能使用此功能', 'error');
+            }
         } else {
-            showToast('点按模式已关闭');
+            showToast('列粘贴模式已关闭');
         }
     });
 
@@ -151,7 +175,7 @@ function appendDirectoryRow(row) {
             <input type="checkbox" class="row-checkbox" ${row.selected ? 'checked' : ''}>
         </td>
         <td>
-            <input type="number" class="field-serial" value="${row.serial}" min="1">
+            <input type="number" class="field-serial" value="${row.serial}" min="1" readonly>
         </td>
         <td>
             <input type="text" class="field-fileNumber" value="${row.fileNumber}"
@@ -184,8 +208,8 @@ function appendDirectoryRow(row) {
         tr.classList.toggle('selected');
     });
 
-    // 字段输入事件
-    const fields = ['serial', 'fileNumber', 'responsible', 'title', 'date', 'pages', 'remark'];
+    // 字段输入事件（序号不需要监听，因为是只读的）
+    const fields = ['fileNumber', 'responsible', 'title', 'date', 'pages', 'remark'];
     fields.forEach(field => {
         const input = tr.querySelector(`.field-${field}`);
         input.addEventListener('input', (e) => {
@@ -196,19 +220,53 @@ function appendDirectoryRow(row) {
     tbody.appendChild(tr);
 }
 
-// ========== 点按模式（剪贴板按钮） ==========
+/**
+ * 请求剪贴板权限（只在第一次请求，之后永久记住）
+ */
+async function requestClipboardPermission() {
+    // 如果已经授权，直接返回true
+    if (clipboardPermissionGranted) {
+        return true;
+    }
+
+    try {
+        // 尝试读取剪贴板以触发权限请求
+        await navigator.clipboard.readText();
+
+        // 权限授予成功，保存到全局变量和localStorage
+        clipboardPermissionGranted = true;
+        localStorage.setItem('clipboardPermissionGranted', 'true');
+
+        console.log('剪贴板权限已授予并保存');
+        return true;
+    } catch (error) {
+        console.log('剪贴板权限被拒绝:', error.message);
+        clipboardPermissionGranted = false;
+        localStorage.setItem('clipboardPermissionGranted', 'false');
+        return false;
+    }
+}
+
+// ========== 列粘贴模式（剪贴板按钮） ==========
 function initClipboardButtons() {
-    const buttons = document.querySelectorAll('.clipboard-btn');
+    const buttons = document.querySelectorAll('.clipboard-btn-small');
 
     buttons.forEach(btn => {
         btn.addEventListener('click', async () => {
             const column = btn.dataset.column;
             try {
                 const text = await navigator.clipboard.readText();
+
+                // 如果权限之前没有保存，现在保存
+                if (!clipboardPermissionGranted) {
+                    clipboardPermissionGranted = true;
+                    localStorage.setItem('clipboardPermissionGranted', 'true');
+                }
+
                 pasteToColumn(column, text);
-                showToast(`已粘贴到【${btn.textContent.replace('📋 ', '')}】列`, 'success');
+                showToast(`已粘贴到【${btn.textContent}】列`, 'success');
             } catch (error) {
-                showToast('读取剪贴板失败，请确保已授权', 'error');
+                showToast('读取剪贴板失败，请刷新页面重新授权', 'error');
                 console.error('剪贴板读取失败:', error);
             }
         });
@@ -219,26 +277,116 @@ function initClipboardButtons() {
  * 将剪贴板内容粘贴到指定列
  */
 function pasteToColumn(column, text) {
-    // 处理多行数据（支持从Excel复制）
-    const lines = text.trim().split('\n');
+    if (!text || !text.trim()) {
+        showToast('剪贴板内容为空', 'warning');
+        return;
+    }
 
-    lines.forEach((line, index) => {
+    // 处理多行数据（支持从Excel复制）
+    const lines = text.trim().split('\n').filter(line => line.trim());
+
+    if (lines.length === 0) {
+        showToast('没有有效数据可粘贴', 'warning');
+        return;
+    }
+
+    let pastedCount = 0;
+
+    lines.forEach(line => {
         const value = line.trim();
         if (!value) return;
 
-        // 找到第一个未填写该列的行，或创建新行
-        let targetRow = dataManager.directoryData.find(row => !row[column]);
+        // 找到第一个未填写该列的行（该列为空字符串或undefined）
+        let targetRow = dataManager.directoryData.find(row => {
+            return !row[column] || row[column].toString().trim() === '';
+        });
 
+        // 如果没有找到空行，创建新行
         if (!targetRow) {
             targetRow = dataManager.addDirectoryRow();
         }
 
         // 更新数据
         dataManager.updateDirectoryRow(targetRow.id, column, value);
+        pastedCount++;
     });
 
-    // 重新渲染表格
+    // 重新分配序号并渲染表格
+    dataManager.reorderDirectory();
     renderDirectoryTable();
+
+    if (pastedCount > 0) {
+        showToast(`已粘贴 ${pastedCount} 项数据`, 'success');
+    }
+}
+
+/**
+ * 批量粘贴整行数据（Excel式粘贴）
+ */
+async function pasteWholeRows() {
+    try {
+        // 读取剪贴板
+        const text = await navigator.clipboard.readText();
+
+        if (!text || !text.trim()) {
+            showToast('剪贴板内容为空', 'warning');
+            return;
+        }
+
+        // 如果权限之前没有保存，现在保存
+        if (!clipboardPermissionGranted) {
+            clipboardPermissionGranted = true;
+            localStorage.setItem('clipboardPermissionGranted', 'true');
+        }
+
+        // 按行分割
+        const rows = text.trim().split('\n').filter(line => line.trim());
+
+        if (rows.length === 0) {
+            showToast('没有有效数据可粘贴', 'warning');
+            return;
+        }
+
+        let pastedRowCount = 0;
+
+        rows.forEach(rowText => {
+            // 检测是否包含制表符（Tab），如果有则按Tab分割
+            let columns;
+            if (rowText.includes('\t')) {
+                // Excel格式：用Tab分割
+                columns = rowText.split('\t');
+            } else {
+                // 单列数据，可能是题名
+                columns = [rowText];
+            }
+
+            // 创建新行
+            const newRow = dataManager.addDirectoryRow();
+
+            // 根据列数映射数据
+            // 列顺序：文件编号、责任者、文件题名、日期、页次、备注
+            const fieldMapping = ['fileNumber', 'responsible', 'title', 'date', 'pages', 'remark'];
+
+            columns.forEach((value, index) => {
+                const trimmedValue = value.trim();
+                if (trimmedValue && index < fieldMapping.length) {
+                    const field = fieldMapping[index];
+                    dataManager.updateDirectoryRow(newRow.id, field, trimmedValue);
+                }
+            });
+
+            pastedRowCount++;
+        });
+
+        // 重新分配序号并渲染表格
+        dataManager.reorderDirectory();
+        renderDirectoryTable();
+
+        showToast(`已粘贴 ${pastedRowCount} 行数据`, 'success');
+    } catch (error) {
+        console.error('粘贴整行失败:', error);
+        showToast('读取剪贴板失败，请确保已授权', 'error');
+    }
 }
 
 // ========== 卷内备考表功能 ==========
@@ -448,15 +596,7 @@ function initDataActions() {
     });
 
     exportBtn.addEventListener('click', () => {
-        const json = dataManager.exportToJSON();
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `archive_data_${dataManager.getTodayDate()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast('数据已导出', 'success');
+        exportToExcel();
     });
 
     clearBtn.addEventListener('click', () => {
@@ -487,6 +627,93 @@ function renderAll() {
     renderRecordForm();
     renderCoverForm();
     renderCatalogTable();
+}
+
+// ========== Excel导出功能 ==========
+/**
+ * 导出为Excel文件（包含所有表格）
+ */
+function exportToExcel() {
+    try {
+        // 创建工作簿
+        const wb = XLSX.utils.book_new();
+
+        // 1. 卷内目录工作表
+        const directoryData = [
+            ['序号', '文件编号', '责任者', '文件题名', '日期', '页次', '备注'],
+            ...dataManager.directoryData.map(row => [
+                row.serial,
+                row.fileNumber,
+                row.responsible,
+                row.title,
+                row.date,
+                row.pages,
+                row.remark
+            ])
+        ];
+        const ws1 = XLSX.utils.aoa_to_sheet(directoryData);
+        XLSX.utils.book_append_sheet(wb, ws1, '卷内目录');
+
+        // 2. 卷内备考表工作表
+        const recordData = [
+            ['项目', '数值'],
+            ['总页数', dataManager.recordData.totalPages || 0],
+            ['文字材料（页）', dataManager.recordData.textPages || 0],
+            ['图样材料（页）', dataManager.recordData.drawingPages || 0],
+            ['照片（张）', dataManager.recordData.photoCount || 0],
+            ['说明', dataManager.recordData.note || ''],
+            ['立卷人', dataManager.recordData.creator || ''],
+            ['立卷日期', dataManager.recordData.createDate || ''],
+            ['审核人', dataManager.recordData.reviewer || ''],
+            ['审核日期', dataManager.recordData.reviewDate || '']
+        ];
+        const ws2 = XLSX.utils.aoa_to_sheet(recordData);
+        XLSX.utils.book_append_sheet(wb, ws2, '卷内备考表');
+
+        // 3. 案卷封面工作表
+        const coverData = [
+            ['项目', '内容'],
+            ['档号', dataManager.coverData.archiveNo || ''],
+            ['案卷题名', dataManager.coverData.title || ''],
+            ['编制单位', dataManager.coverData.unit || ''],
+            ['起始日期', dataManager.coverData.startDate || ''],
+            ['结束日期', dataManager.coverData.endDate || ''],
+            ['密级', dataManager.coverData.secretLevel || ''],
+            ['保管期限', dataManager.coverData.retentionPeriod || ''],
+            ['本工程共（卷）', dataManager.coverData.totalVolumes || 1],
+            ['本案卷为第（卷）', dataManager.coverData.volumeNumber || 1]
+        ];
+        const ws3 = XLSX.utils.aoa_to_sheet(coverData);
+        XLSX.utils.book_append_sheet(wb, ws3, '案卷封面');
+
+        // 4. 案卷目录工作表
+        const catalogData = [
+            ['案卷号', '案卷题名', '文字(页)', '图纸(张)', '其他', '编制单位', '编制日期', '保管期限', '密级', '备注'],
+            ...dataManager.catalogData.map(entry => [
+                entry.volumeNo,
+                entry.title,
+                entry.textPages,
+                entry.drawingPages,
+                entry.other,
+                entry.unit,
+                entry.createDate,
+                entry.retentionPeriod,
+                entry.secretLevel,
+                entry.remark
+            ])
+        ];
+        const ws4 = XLSX.utils.aoa_to_sheet(catalogData);
+        XLSX.utils.book_append_sheet(wb, ws4, '案卷目录');
+
+        // 生成Excel文件并下载
+        const fileName = `工程资料归档_${dataManager.getTodayDate()}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+
+        showToast('Excel文件已导出', 'success');
+    } catch (error) {
+        console.error('导出Excel失败:', error);
+        showToast('导出Excel失败，请检查浏览器是否支持', 'error');
+    }
 }
 
 // ========== 提示消息 ==========

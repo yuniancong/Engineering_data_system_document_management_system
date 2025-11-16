@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>工程资料归档管理系统 - GB 50328-2014</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- SheetJS库用于Excel导出 -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -28,11 +30,23 @@
                     <button id="addRowBtn" class="btn btn-primary">添加行</button>
                     <button id="deleteRowBtn" class="btn btn-danger">删除选中行</button>
                     <button id="autoGenerateBtn" class="btn btn-success">自动生成其他表格</button>
+                    <button id="pasteRowBtn" class="btn btn-warning">📋 粘贴整行</button>
                     <label class="mode-switch">
                         <input type="checkbox" id="clipboardModeToggle">
-                        <span>启用点按模式</span>
+                        <span>启用列粘贴模式</span>
                     </label>
                 </div>
+            </div>
+
+            <!-- 列粘贴按钮（紧贴表格上方） -->
+            <div id="clipboardButtons" class="clipboard-buttons-inline" style="display: none;">
+                <div class="clipboard-hint">点击列按钮，将剪贴板内容粘贴到该列：</div>
+                <button class="clipboard-btn-small" data-column="fileNumber">文件编号</button>
+                <button class="clipboard-btn-small" data-column="responsible">责任者</button>
+                <button class="clipboard-btn-small" data-column="title">文件题名</button>
+                <button class="clipboard-btn-small" data-column="date">日期</button>
+                <button class="clipboard-btn-small" data-column="pages">页次</button>
+                <button class="clipboard-btn-small" data-column="remark">备注</button>
             </div>
 
             <div class="table-wrapper">
@@ -55,17 +69,6 @@
                         <!-- 动态生成的行 -->
                     </tbody>
                 </table>
-            </div>
-
-            <!-- 点按模式按钮 -->
-            <div id="clipboardButtons" class="clipboard-buttons" style="display: none;">
-                <button class="clipboard-btn" data-column="serial">📋 序号</button>
-                <button class="clipboard-btn" data-column="fileNumber">📋 文件编号</button>
-                <button class="clipboard-btn" data-column="responsible">📋 责任者</button>
-                <button class="clipboard-btn" data-column="title">📋 文件题名</button>
-                <button class="clipboard-btn" data-column="date">📋 日期</button>
-                <button class="clipboard-btn" data-column="pages">📋 页次</button>
-                <button class="clipboard-btn" data-column="remark">📋 备注</button>
             </div>
         </div>
 
