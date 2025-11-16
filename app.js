@@ -104,9 +104,15 @@ function initDirectory() {
         showToast('已自动生成所有表格', 'success');
     });
 
-    // 粘贴整行（批量粘贴）
+    // 粘贴整行（批量粘贴 - 默认顺序）
     pasteRowBtn.addEventListener('click', async () => {
         await pasteWholeRows();
+    });
+
+    // 自定义粘贴（打开对话框）
+    const pasteRowCustomBtn = document.getElementById('pasteRowCustomBtn');
+    pasteRowCustomBtn.addEventListener('click', () => {
+        openCustomPasteDialog();
     });
 
     // 切换列粘贴模式
@@ -579,6 +585,7 @@ function initDataActions() {
     const saveBtn = document.getElementById('saveDataBtn');
     const loadBtn = document.getElementById('loadDataBtn');
     const exportBtn = document.getElementById('exportDataBtn');
+    const exportWordBtn = document.getElementById('exportWordBtn');
     const clearBtn = document.getElementById('clearDataBtn');
 
     saveBtn.addEventListener('click', () => {
@@ -597,6 +604,11 @@ function initDataActions() {
 
     exportBtn.addEventListener('click', () => {
         exportToExcel();
+    });
+
+    // Word导出按钮
+    exportWordBtn.addEventListener('click', () => {
+        openWordExportDialog();
     });
 
     clearBtn.addEventListener('click', () => {
@@ -752,3 +764,260 @@ document.addEventListener('keydown', (e) => {
 window.addEventListener('beforeunload', () => {
     dataManager.saveToLocalStorage();
 });
+
+// ========== 自定义粘贴功能 ==========
+let clipboardDataForCustomPaste = null; // 暂存剪贴板数据
+
+/**
+ * 打开自定义粘贴对话框
+ */
+async function openCustomPasteDialog() {
+    try {
+        // 读取剪贴板
+        const text = await navigator.clipboard.readText();
+
+        if (!text || !text.trim()) {
+            showToast('剪贴板内容为空', 'warning');
+            return;
+        }
+
+        // 保存剪贴板数据
+        clipboardDataForCustomPaste = text;
+
+        // 显示对话框
+        const dialog = document.getElementById('pasteCustomDialog');
+        dialog.style.display = 'block';
+
+        // 初始化事件监听（只初始化一次）
+        if (!dialog.dataset.initialized) {
+            initCustomPasteDialog();
+            dialog.dataset.initialized = 'true';
+        }
+
+    } catch (error) {
+        console.error('读取剪贴板失败:', error);
+        showToast('读取剪贴板失败，请确保已授权', 'error');
+    }
+}
+
+/**
+ * 初始化自定义粘贴对话框
+ */
+function initCustomPasteDialog() {
+    // 关闭按钮
+    document.getElementById('closeCustomDialog').addEventListener('click', closeCustomPasteDialog);
+    document.getElementById('cancelCustomPaste').addEventListener('click', closeCustomPasteDialog);
+
+    // 点击背景关闭
+    document.getElementById('pasteCustomDialog').addEventListener('click', (e) => {
+        if (e.target.id === 'pasteCustomDialog') {
+            closeCustomPasteDialog();
+        }
+    });
+
+    // 确定粘贴按钮
+    document.getElementById('confirmCustomPaste').addEventListener('click', executeCustomPaste);
+
+    // 预设按钮
+    document.getElementById('presetDefault').addEventListener('click', () => {
+        setColumnMapping(['fileNumber', 'responsible', 'title', 'date', 'pages', 'remark']);
+    });
+
+    document.getElementById('presetTitleOnly').addEventListener('click', () => {
+        setColumnMapping(['title', '', '', '', '', '']);
+    });
+
+    document.getElementById('presetTitleDate').addEventListener('click', () => {
+        setColumnMapping(['title', 'date', '', '', '', '']);
+    });
+}
+
+/**
+ * 关闭自定义粘贴对话框
+ */
+function closeCustomPasteDialog() {
+    document.getElementById('pasteCustomDialog').style.display = 'none';
+    clipboardDataForCustomPaste = null;
+}
+
+/**
+ * 设置列映射
+ */
+function setColumnMapping(mapping) {
+    const selects = document.querySelectorAll('.column-select');
+    selects.forEach((select, index) => {
+        if (index < mapping.length) {
+            select.value = mapping[index] || '';
+        }
+    });
+}
+
+/**
+ * 执行自定义粘贴
+ */
+function executeCustomPaste() {
+    if (!clipboardDataForCustomPaste) {
+        showToast('没有可粘贴的数据', 'warning');
+        closeCustomPasteDialog();
+        return;
+    }
+
+    // 获取列映射
+    const selects = document.querySelectorAll('.column-select');
+    const columnMapping = [];
+    selects.forEach(select => {
+        columnMapping.push(select.value);
+    });
+
+    // 检查是否至少选择了一列
+    const hasMapping = columnMapping.some(value => value !== '');
+    if (!hasMapping) {
+        showToast('请至少选择一列进行映射', 'warning');
+        return;
+    }
+
+    // 执行粘贴
+    pasteWholeRowsWithMapping(clipboardDataForCustomPaste, columnMapping);
+
+    // 关闭对话框
+    closeCustomPasteDialog();
+}
+
+/**
+ * 使用自定义列映射粘贴整行数据
+ */
+function pasteWholeRowsWithMapping(text, columnMapping) {
+    try {
+        // 按行分割
+        const rows = text.trim().split('\n').filter(line => line.trim());
+
+        if (rows.length === 0) {
+            showToast('没有有效数据可粘贴', 'warning');
+            return;
+        }
+
+        let pastedRowCount = 0;
+
+        rows.forEach(rowText => {
+            // 检测是否包含制表符（Tab），如果有则按Tab分割
+            let columns;
+            if (rowText.includes('\t')) {
+                columns = rowText.split('\t');
+            } else {
+                columns = [rowText];
+            }
+
+            // 创建新行
+            const newRow = dataManager.addDirectoryRow();
+
+            // 根据自定义映射填充数据
+            columns.forEach((value, index) => {
+                const trimmedValue = value.trim();
+                if (trimmedValue && index < columnMapping.length && columnMapping[index]) {
+                    const field = columnMapping[index];
+                    dataManager.updateDirectoryRow(newRow.id, field, trimmedValue);
+                }
+            });
+
+            pastedRowCount++;
+        });
+
+        // 重新分配序号并渲染表格
+        dataManager.reorderDirectory();
+        renderDirectoryTable();
+
+        showToast(`已粘贴 ${pastedRowCount} 行数据`, 'success');
+    } catch (error) {
+        console.error('自定义粘贴失败:', error);
+        showToast('粘贴失败', 'error');
+    }
+}
+
+// ========== Word导出对话框功能 ==========
+
+/**
+ * 打开Word导出对话框
+ */
+function openWordExportDialog() {
+    const dialog = document.getElementById('wordExportDialog');
+    dialog.style.display = 'block';
+
+    // 初始化事件监听（只初始化一次）
+    if (!dialog.dataset.initialized) {
+        initWordExportDialog();
+        dialog.dataset.initialized = 'true';
+    }
+}
+
+/**
+ * 初始化Word导出对话框
+ */
+function initWordExportDialog() {
+    // 关闭按钮
+    document.getElementById('closeWordExportDialog').addEventListener('click', closeWordExportDialog);
+    document.getElementById('cancelWordExport').addEventListener('click', closeWordExportDialog);
+
+    // 点击背景关闭
+    document.getElementById('wordExportDialog').addEventListener('click', (e) => {
+        if (e.target.id === 'wordExportDialog') {
+            closeWordExportDialog();
+        }
+    });
+
+    // 导出选项按钮
+    const exportButtons = document.querySelectorAll('.export-option-btn');
+    exportButtons.forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const template = btn.dataset.template;
+            await handleWordExport(template);
+            closeWordExportDialog();
+        });
+    });
+}
+
+/**
+ * 关闭Word导出对话框
+ */
+function closeWordExportDialog() {
+    document.getElementById('wordExportDialog').style.display = 'none';
+}
+
+/**
+ * 处理Word导出
+ */
+async function handleWordExport(template) {
+    try {
+        showToast('正在生成Word文档，请稍候...', 'success');
+
+        switch (template) {
+            case 'directory':
+                await wordExporter.exportDirectory();
+                showToast('卷内目录已导出', 'success');
+                break;
+            case 'record':
+                await wordExporter.exportRecord();
+                showToast('卷内备考表已导出', 'success');
+                break;
+            case 'cover':
+                await wordExporter.exportCover();
+                showToast('案卷封面已导出', 'success');
+                break;
+            case 'catalog':
+                await wordExporter.exportCatalog();
+                showToast('案卷目录已导出', 'success');
+                break;
+            case 'transfer':
+                await wordExporter.exportTransfer();
+                showToast('档案移交书已导出', 'success');
+                break;
+            case 'all':
+                await wordExporter.exportAll();
+                break;
+            default:
+                showToast('未知的导出类型', 'error');
+        }
+    } catch (error) {
+        console.error('Word导出失败:', error);
+        showToast('Word导出失败: ' + error.message, 'error');
+    }
+}

@@ -287,6 +287,146 @@ header h1 {
     transform: translateY(0);
 }
 
+/* 模态对话框 */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    animation: fadeIn 0.3s;
+}
+
+.modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 0;
+    border-radius: 10px;
+    width: 600px;
+    max-width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideDown 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.modal-header {
+    padding: 20px 25px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px 10px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.3s;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-body {
+    padding: 25px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.modal-body .hint {
+    color: #666;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.mapping-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    gap: 15px;
+}
+
+.mapping-row label {
+    font-weight: bold;
+    min-width: 120px;
+    color: #555;
+}
+
+.column-select {
+    flex: 1;
+    padding: 8px 12px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: border-color 0.3s;
+}
+
+.column-select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.preset-buttons {
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+.modal-footer {
+    padding: 15px 25px;
+    background: #f8f9fa;
+    border-radius: 0 0 10px 10px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
 /* 表单样式 */
 .record-form,
 .cover-form {
@@ -482,5 +622,37 @@ footer p {
 @keyframes spin {
     to {
         transform: rotate(360deg);
+    }
+}
+
+/* Word导出选择对话框 */
+.export-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.export-option-btn {
+    padding: 20px 15px;
+    font-size: 16px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 60px;
+    white-space: normal;
+    line-height: 1.4;
+}
+
+.export-option-btn[data-template="all"] {
+    grid-column: 1 / -1;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .export-options {
+        grid-template-columns: 1fr;
     }
 }

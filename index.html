@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="styles.css">
     <!-- SheetJS库用于Excel导出 -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- JSZip库用于处理docx文件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!--  docxtemplater库用于Word模板处理 -->
+    <script src="https://unpkg.com/docxtemplater@3.42.3/build/docxtemplater.js"></script>
+    <!-- FileSaver用于文件下载 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -31,10 +37,107 @@
                     <button id="deleteRowBtn" class="btn btn-danger">删除选中行</button>
                     <button id="autoGenerateBtn" class="btn btn-success">自动生成其他表格</button>
                     <button id="pasteRowBtn" class="btn btn-warning">📋 粘贴整行</button>
+                    <button id="pasteRowCustomBtn" class="btn btn-warning">📋 自定义粘贴</button>
                     <label class="mode-switch">
                         <input type="checkbox" id="clipboardModeToggle">
                         <span>启用列粘贴模式</span>
                     </label>
+                </div>
+            </div>
+
+            <!-- 自定义粘贴对话框 -->
+            <div id="pasteCustomDialog" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>自定义粘贴 - 列映射设置</h3>
+                        <button class="modal-close" id="closeCustomDialog">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="hint">请选择剪贴板中的每一列对应系统中的哪个字段：</p>
+                        <div id="columnMappingContainer">
+                            <div class="mapping-row">
+                                <label>剪贴板第1列 →</label>
+                                <select class="column-select" data-index="0">
+                                    <option value="">不导入</option>
+                                    <option value="fileNumber">文件编号</option>
+                                    <option value="responsible">责任者</option>
+                                    <option value="title" selected>文件题名</option>
+                                    <option value="date">日期</option>
+                                    <option value="pages">页次</option>
+                                    <option value="remark">备注</option>
+                                </select>
+                            </div>
+                            <div class="mapping-row">
+                                <label>剪贴板第2列 →</label>
+                                <select class="column-select" data-index="1">
+                                    <option value="">不导入</option>
+                                    <option value="fileNumber">文件编号</option>
+                                    <option value="responsible">责任者</option>
+                                    <option value="title">文件题名</option>
+                                    <option value="date">日期</option>
+                                    <option value="pages">页次</option>
+                                    <option value="remark">备注</option>
+                                </select>
+                            </div>
+                            <div class="mapping-row">
+                                <label>剪贴板第3列 →</label>
+                                <select class="column-select" data-index="2">
+                                    <option value="">不导入</option>
+                                    <option value="fileNumber">文件编号</option>
+                                    <option value="responsible">责任者</option>
+                                    <option value="title">文件题名</option>
+                                    <option value="date">日期</option>
+                                    <option value="pages">页次</option>
+                                    <option value="remark">备注</option>
+                                </select>
+                            </div>
+                            <div class="mapping-row">
+                                <label>剪贴板第4列 →</label>
+                                <select class="column-select" data-index="3">
+                                    <option value="">不导入</option>
+                                    <option value="fileNumber">文件编号</option>
+                                    <option value="responsible">责任者</option>
+                                    <option value="title">文件题名</option>
+                                    <option value="date">日期</option>
+                                    <option value="pages">页次</option>
+                                    <option value="remark">备注</option>
+                                </select>
+                            </div>
+                            <div class="mapping-row">
+                                <label>剪贴板第5列 →</label>
+                                <select class="column-select" data-index="4">
+                                    <option value="">不导入</option>
+                                    <option value="fileNumber">文件编号</option>
+                                    <option value="responsible">责任者</option>
+                                    <option value="title">文件题名</option>
+                                    <option value="date">日期</option>
+                                    <option value="pages">页次</option>
+                                    <option value="remark">备注</option>
+                                </select>
+                            </div>
+                            <div class="mapping-row">
+                                <label>剪贴板第6列 →</label>
+                                <select class="column-select" data-index="5">
+                                    <option value="">不导入</option>
+                                    <option value="fileNumber">文件编号</option>
+                                    <option value="responsible">责任者</option>
+                                    <option value="title">文件题名</option>
+                                    <option value="date">日期</option>
+                                    <option value="pages">页次</option>
+                                    <option value="remark">备注</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="preset-buttons">
+                            <button class="btn btn-secondary btn-sm" id="presetDefault">预设：默认顺序</button>
+                            <button class="btn btn-secondary btn-sm" id="presetTitleOnly">预设：仅题名</button>
+                            <button class="btn btn-secondary btn-sm" id="presetTitleDate">预设：题名+日期</button>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" id="cancelCustomPaste">取消</button>
+                        <button class="btn btn-primary" id="confirmCustomPaste">确定粘贴</button>
+                    </div>
                 </div>
             </div>
 
@@ -215,13 +318,51 @@
             <div class="data-actions">
                 <button id="saveDataBtn" class="btn btn-primary">保存数据</button>
                 <button id="loadDataBtn" class="btn btn-secondary">加载数据</button>
-                <button id="exportDataBtn" class="btn btn-success">导出数据</button>
+                <button id="exportDataBtn" class="btn btn-success">导出Excel</button>
+                <button id="exportWordBtn" class="btn btn-success">导出Word</button>
                 <button id="clearDataBtn" class="btn btn-danger">清空所有数据</button>
             </div>
         </footer>
     </div>
 
+    <!-- Word导出选择对话框 -->
+    <div id="wordExportDialog" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>选择要导出的Word文档</h3>
+                <button class="modal-close" id="closeWordExportDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="hint">请选择要导出的文档类型：</p>
+                <div class="export-options">
+                    <button class="btn btn-primary export-option-btn" data-template="directory">
+                        📄 卷内目录
+                    </button>
+                    <button class="btn btn-primary export-option-btn" data-template="record">
+                        📋 卷内备考表
+                    </button>
+                    <button class="btn btn-primary export-option-btn" data-template="cover">
+                        📕 案卷封面
+                    </button>
+                    <button class="btn btn-primary export-option-btn" data-template="catalog">
+                        📚 案卷目录
+                    </button>
+                    <button class="btn btn-primary export-option-btn" data-template="transfer">
+                        📮 档案移交书
+                    </button>
+                    <button class="btn btn-success export-option-btn" data-template="all">
+                        📦 导出全部文档
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelWordExport">取消</button>
+            </div>
+        </div>
+    </div>
+
     <script src="data-manager.js"></script>
+    <script src="word-exporter.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
