@@ -95,32 +95,230 @@ class WordExporter {
      * 导出卷内备考表
      */
     async exportRecord() {
-        showToast('备考表模板暂未完成，使用简化格式导出', 'warning');
-        await this.exportRecordSimple();
+        try {
+            showToast('正在生成卷内备考表...', 'success');
+
+            const templatePath = this.templates.record;
+            const data = this.dataManager.recordData;
+
+            // 加载模板
+            const templateBlob = await this.loadTemplate(templatePath);
+            const zip = await JSZip.loadAsync(templateBlob);
+
+            // 读取document.xml
+            const docXml = await zip.file('word/document.xml').async('string');
+
+            // 替换占位符
+            let modifiedXml = docXml;
+            const replacements = {
+                '{{totalPages}}': data.totalPages || '0',
+                '{{textPages}}': data.textPages || '0',
+                '{{drawingPages}}': data.drawingPages || '0',
+                '{{photoCount}}': data.photoCount || '0',
+                '{{note}}': data.note || '',
+                '{{creator}}': data.creator || '',
+                '{{createDate}}': data.createDate || '',
+                '{{reviewer}}': data.reviewer || '',
+                '{{reviewDate}}': data.reviewDate || ''
+            };
+
+            // 执行替换
+            Object.keys(replacements).forEach(placeholder => {
+                const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+                modifiedXml = modifiedXml.replace(regex, this.escapeXml(replacements[placeholder]));
+            });
+
+            // 更新zip中的document.xml
+            zip.file('word/document.xml', modifiedXml);
+
+            // 生成新的docx文件
+            const blob = await zip.generateAsync({type: 'blob'});
+            saveAs(blob, `卷内备考表_${this.dataManager.getTodayDate()}.docx`);
+
+            showToast('卷内备考表已导出', 'success');
+        } catch (error) {
+            console.error('导出卷内备考表失败:', error);
+            showToast('导出失败: ' + error.message, 'error');
+        }
     }
 
     /**
      * 导出案卷封面
      */
     async exportCover() {
-        showToast('封面模板暂未完成，使用简化格式导出', 'warning');
-        await this.exportCoverSimple();
+        try {
+            showToast('正在生成案卷封面...', 'success');
+
+            const templatePath = this.templates.cover;
+            const data = this.dataManager.coverData;
+
+            // 加载模板
+            const templateBlob = await this.loadTemplate(templatePath);
+            const zip = await JSZip.loadAsync(templateBlob);
+
+            // 读取document.xml
+            const docXml = await zip.file('word/document.xml').async('string');
+
+            // 替换占位符
+            let modifiedXml = docXml;
+            const replacements = {
+                '{{archiveNo}}': data.archiveNo || '',
+                '{{title}}': data.title || '',
+                '{{unit}}': data.unit || '',
+                '{{startDate}}': data.startDate || '',
+                '{{endDate}}': data.endDate || '',
+                '{{secretLevel}}': data.secretLevel || '',
+                '{{retentionPeriod}}': data.retentionPeriod || '永久',
+                '{{totalVolumes}}': data.totalVolumes || '1',
+                '{{volumeNumber}}': data.volumeNumber || '1'
+            };
+
+            // 执行替换
+            Object.keys(replacements).forEach(placeholder => {
+                const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+                modifiedXml = modifiedXml.replace(regex, this.escapeXml(replacements[placeholder]));
+            });
+
+            // 更新zip中的document.xml
+            zip.file('word/document.xml', modifiedXml);
+
+            // 生成新的docx文件
+            const blob = await zip.generateAsync({type: 'blob'});
+            saveAs(blob, `案卷封面_${this.dataManager.getTodayDate()}.docx`);
+
+            showToast('案卷封面已导出', 'success');
+        } catch (error) {
+            console.error('导出案卷封面失败:', error);
+            showToast('导出失败: ' + error.message, 'error');
+        }
     }
 
     /**
-     * 导出案卷目录
+     * 导出案卷目录（档案移交目录 - 表一）
      */
     async exportCatalog() {
-        showToast('案卷目录模板暂未完成，使用简化格式导出', 'warning');
-        await this.exportCatalogSimple();
+        try {
+            showToast('正在生成档案移交目录...', 'success');
+
+            const templatePath = this.templates.catalog;
+            const data = this.dataManager.catalogData;
+
+            // 加载模板
+            const templateBlob = await this.loadTemplate(templatePath);
+            const zip = await JSZip.loadAsync(templateBlob);
+
+            // 读取document.xml
+            const docXml = await zip.file('word/document.xml').async('string');
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(docXml, 'text/xml');
+
+            // 找到表格
+            const table = xmlDoc.getElementsByTagName('w:tbl')[0];
+            if (!table) {
+                throw new Error('模板中未找到表格');
+            }
+
+            // 获取所有行
+            const rows = table.getElementsByTagName('w:tr');
+            if (rows.length < 3) {
+                throw new Error('模板表格格式不正确');
+            }
+
+            // 保留前2行（标题和表头），使用第3行作为模板
+            const templateRow = rows[2].cloneNode(true);
+
+            // 删除第3行及以后的所有行
+            while (rows.length > 2) {
+                table.removeChild(rows[2]);
+            }
+
+            // 添加数据行
+            data.forEach(item => {
+                const newRow = templateRow.cloneNode(true);
+                const cells = newRow.getElementsByTagName('w:tc');
+
+                if (cells.length >= 8) {
+                    // 按照模板列顺序填充：案卷号, 案卷题名, 文字(页), 图纸(张), 其他, 编制单位, 编制日期, 保管期限
+                    this.setCellText(cells[0], item.volumeNo.toString());
+                    this.setCellText(cells[1], item.title);
+                    this.setCellText(cells[2], item.textPages.toString());
+                    this.setCellText(cells[3], item.drawingPages.toString());
+                    this.setCellText(cells[4], item.other || '');
+                    this.setCellText(cells[5], item.unit);
+                    this.setCellText(cells[6], item.createDate);
+                    this.setCellText(cells[7], item.retentionPeriod);
+                }
+
+                table.appendChild(newRow);
+            });
+
+            // 序列化XML
+            const serializer = new XMLSerializer();
+            const modifiedXml = serializer.serializeToString(xmlDoc);
+
+            // 更新zip中的document.xml
+            zip.file('word/document.xml', modifiedXml);
+
+            // 生成新的docx文件
+            const blob = await zip.generateAsync({type: 'blob'});
+            saveAs(blob, `档案移交目录_${this.dataManager.getTodayDate()}.docx`);
+
+            showToast('档案移交目录已导出', 'success');
+        } catch (error) {
+            console.error('导出档案移交目录失败:', error);
+            showToast('导出失败: ' + error.message, 'error');
+        }
     }
 
     /**
      * 导出档案移交书
      */
     async exportTransfer() {
-        showToast('移交书模板暂未完成，使用简化格式导出', 'warning');
-        await this.exportTransferSimple();
+        try {
+            showToast('正在生成档案移交书...', 'success');
+
+            const templatePath = this.templates.transfer;
+            const coverData = this.dataManager.coverData;
+            const recordData = this.dataManager.recordData;
+
+            // 加载模板
+            const templateBlob = await this.loadTemplate(templatePath);
+            const zip = await JSZip.loadAsync(templateBlob);
+
+            // 读取document.xml
+            const docXml = await zip.file('word/document.xml').async('string');
+
+            // 替换占位符
+            let modifiedXml = docXml;
+            const replacements = {
+                '{{title}}': coverData.title || '',
+                '{{unit}}': coverData.unit || '',
+                '{{date}}': this.dataManager.getTodayDate(),
+                '{{totalVolumes}}': coverData.totalVolumes || '1',
+                '{{totalPages}}': recordData.totalPages || '0',
+                '{{note}}': recordData.note || '本工程档案资料已按GB 50328-2014标准整理完毕，现移交存档。',
+                '{{archiveNo}}': coverData.archiveNo || '',
+                '{{retentionPeriod}}': coverData.retentionPeriod || '永久'
+            };
+
+            // 执行替换
+            Object.keys(replacements).forEach(placeholder => {
+                const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
+                modifiedXml = modifiedXml.replace(regex, this.escapeXml(replacements[placeholder]));
+            });
+
+            // 更新zip中的document.xml
+            zip.file('word/document.xml', modifiedXml);
+
+            // 生成新的docx文件
+            const blob = await zip.generateAsync({type: 'blob'});
+            saveAs(blob, `档案移交书_${this.dataManager.getTodayDate()}.docx`);
+
+            showToast('档案移交书已导出', 'success');
+        } catch (error) {
+            console.error('导出档案移交书失败:', error);
+            showToast('导出失败: ' + error.message, 'error');
+        }
     }
 
     /**
@@ -317,6 +515,19 @@ h1{text-align:center;font-size:18pt;font-weight:bold;margin:30px 0;}
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * 转义XML特殊字符
+     */
+    escapeXml(text) {
+        if (!text) return '';
+        return text.toString()
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
     }
 
     downloadAsWord(html, filename) {
