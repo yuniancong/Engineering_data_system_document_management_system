@@ -131,27 +131,49 @@
 
 **重要**：由于Word导出功能需要加载模板文件，必须通过HTTP服务器运行应用（不能直接双击打开index.html）。
 
-#### 方法一：使用启动脚本（推荐）
+#### 方法一：一键启动（最推荐）✨
 
-项目提供了跨平台的启动脚本：
+项目提供了智能一键启动脚本，自动完成以下操作：
+- 🔍 自动检测并激活Python虚拟环境（支持myenv、venv、.venv）
+- 🚀 启动HTTP服务器
+- 🌐 自动在浏览器中打开应用
 
 **Windows用户**：
 ```bash
-# 双击运行
-start-server.bat
+# 双击运行即可
+run.bat
 ```
 
 **Linux/Mac用户**：
 ```bash
 # 在终端运行
+./run.sh
+```
+
+**功能特性**：
+- ✅ 自动检测虚拟环境并激活（无需手动source activate）
+- ✅ 自动检测可用的HTTP服务器工具
+- ✅ 自动打开浏览器
+- ✅ 友好的状态提示和错误处理
+- ✅ 按Ctrl+C优雅退出
+
+#### 方法二：使用基础启动脚本
+
+如果不需要自动打开浏览器，可以使用基础脚本：
+
+**Windows用户**：
+```bash
+start-server.bat
+```
+
+**Linux/Mac用户**：
+```bash
 ./start-server.sh
 # 或
 python3 start-server.py
 ```
 
-脚本会自动检测并使用可用的HTTP服务器工具，然后在浏览器中打开应用。
-
-#### 方法二：手动启动服务器
+#### 方法三：手动启动服务器
 
 **使用Python（推荐 - 最简单）**：
 ```bash
@@ -482,15 +504,19 @@ templates/模板占位符说明.md
 这是因为直接双击打开了index.html文件，浏览器无法加载模板文件。
 
 **解决方法**：
-1. **推荐**：使用提供的启动脚本
+1. **最推荐**：使用一键启动脚本
+   - Windows: 双击 `run.bat`
+   - Linux/Mac: 运行 `./run.sh`
+   - 自动激活虚拟环境、启动服务器并打开浏览器
+2. 使用基础启动脚本：
    - Windows: 双击 `start-server.bat`
    - Linux/Mac: 运行 `./start-server.sh`
-2. 或者手动启动HTTP服务器：
+3. 手动启动HTTP服务器：
    ```bash
    python3 -m http.server 8000
-   # 然后访问 http://localhost:8000
+   # 然后在浏览器访问 http://localhost:8000
    ```
-3. 详细说明请查看"快速开始"部分
+4. 详细说明请查看"快速开始"部分
 
 ### 2. 剪贴板功能无法使用？
 - 首次使用粘贴功能时需要授权浏览器访问剪贴板权限
@@ -644,10 +670,15 @@ Engineering_data_system_document_management_system/
   - 表三（卷内目录）：表格自动填充（已有功能）
   - 表四（卷内备考表）：占位符替换，保留模板样式
   - 附件3（档案移交书）：占位符替换，保留模板样式
-- **新增启动脚本**：提供跨平台HTTP服务器启动脚本
-  - `start-server.py` - Python版本
-  - `start-server.sh` - Linux/Mac Shell版本
-  - `start-server.bat` - Windows批处理版本
+- **🚀 一键启动脚本** ✨：智能启动脚本，极大简化使用流程
+  - `run.sh` / `run.bat` - 一键启动脚本（推荐）
+    - 自动检测并激活Python虚拟环境（myenv、venv、.venv）
+    - 自动启动HTTP服务器
+    - 自动在浏览器中打开应用
+    - 友好的状态提示和错误处理
+  - `start-server.py` - Python基础版本
+  - `start-server.sh` - Linux/Mac Shell基础版本
+  - `start-server.bat` - Windows批处理基础版本
 - **模板配置文档**：新增 `templates/模板占位符说明.md` 详细说明
 - **技术栈变更**：使用JSZip替代docx.js，更好地保留模板格式
 - **README更新**：添加快速开始指南，详细说明HTTP服务器启动方法
