@@ -244,38 +244,46 @@ header h1 {
     padding: 8px;
 }
 
-/* 点按模式按钮 */
-.clipboard-buttons {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
+/* 列粘贴按钮（表格上方） */
+.clipboard-buttons-inline {
+    display: flex;
+    align-items: center;
     gap: 10px;
-    margin-top: 20px;
-    padding: 20px;
-    background: #f8f9fa;
+    margin-bottom: 10px;
+    padding: 12px 15px;
+    background: #f0f8ff;
     border-radius: 5px;
-    border: 2px dashed #667eea;
+    border: 2px solid #667eea;
+    flex-wrap: wrap;
 }
 
-.clipboard-btn {
-    padding: 15px 10px;
+.clipboard-hint {
+    font-size: 14px;
+    color: #555;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.clipboard-btn-small {
+    padding: 8px 16px;
     border: 2px solid #667eea;
     border-radius: 5px;
     background: white;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
     color: #667eea;
-    transition: all 0.3s;
+    transition: all 0.2s;
 }
 
-.clipboard-btn:hover {
+.clipboard-btn-small:hover {
     background: #667eea;
     color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
 }
 
-.clipboard-btn:active {
+.clipboard-btn-small:active {
     transform: translateY(0);
 }
 
