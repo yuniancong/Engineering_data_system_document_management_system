@@ -3,6 +3,36 @@
  * 用于检查模板、数据和导出功能的状态
  */
 
+// 全局日志存储
+const debugLogs = [];
+const MAX_LOGS = 200; // 最多保存200条日志
+
+// 覆盖console.log以捕获所有日志
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+console.log = function(...args) {
+    const timestamp = new Date().toLocaleTimeString();
+    debugLogs.push({ time: timestamp, level: 'log', message: args.join(' ') });
+    if (debugLogs.length > MAX_LOGS) debugLogs.shift();
+    originalConsoleLog.apply(console, args);
+};
+
+console.error = function(...args) {
+    const timestamp = new Date().toLocaleTimeString();
+    debugLogs.push({ time: timestamp, level: 'error', message: args.join(' ') });
+    if (debugLogs.length > MAX_LOGS) debugLogs.shift();
+    originalConsoleError.apply(console, args);
+};
+
+console.warn = function(...args) {
+    const timestamp = new Date().toLocaleTimeString();
+    debugLogs.push({ time: timestamp, level: 'warn', message: args.join(' ') });
+    if (debugLogs.length > MAX_LOGS) debugLogs.shift();
+    originalConsoleWarn.apply(console, args);
+};
+
 class DebugHelper {
     constructor(dataManager, wordExporter) {
         this.dataManager = dataManager;
@@ -19,39 +49,77 @@ class DebugHelper {
             position: fixed;
             top: 20px;
             right: 20px;
-            width: 400px;
-            max-height: 80vh;
-            overflow-y: auto;
+            width: 500px;
+            max-height: 85vh;
             background: white;
             border: 2px solid #333;
             border-radius: 8px;
-            padding: 20px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
             z-index: 10000;
             font-family: monospace;
             font-size: 12px;
+            display: flex;
+            flex-direction: column;
         `;
 
         panel.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; border-bottom: 1px solid #ddd;">
                 <h3 style="margin: 0;">🔍 调试面板</h3>
                 <button onclick="document.getElementById('debug-panel').remove()" style="background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">关闭</button>
             </div>
-            <div id="debug-content"></div>
+
+            <div style="display: flex; border-bottom: 1px solid #ddd; background: #f5f5f5;">
+                <button class="debug-tab active" data-tab="status" style="flex: 1; padding: 10px; border: none; background: white; cursor: pointer; font-weight: bold;">状态</button>
+                <button class="debug-tab" data-tab="logs" style="flex: 1; padding: 10px; border: none; background: transparent; cursor: pointer;">日志</button>
+                <button class="debug-tab" data-tab="actions" style="flex: 1; padding: 10px; border: none; background: transparent; cursor: pointer;">操作</button>
+            </div>
+
+            <div id="debug-content" style="padding: 20px; overflow-y: auto; flex: 1;"></div>
         `;
 
         document.body.appendChild(panel);
-        this.updateDebugInfo();
+
+        // 绑定标签页切换
+        panel.querySelectorAll('.debug-tab').forEach(btn => {
+            btn.onclick = () => {
+                panel.querySelectorAll('.debug-tab').forEach(b => {
+                    b.classList.remove('active');
+                    b.style.background = 'transparent';
+                });
+                btn.classList.add('active');
+                btn.style.background = 'white';
+                this.updateDebugContent(btn.dataset.tab);
+            };
+        });
+
+        this.updateDebugContent('status');
     }
 
     /**
-     * 更新调试信息
+     * 更新调试内容
      */
-    updateDebugInfo() {
+    updateDebugContent(tab) {
         const content = document.getElementById('debug-content');
         if (!content) return;
 
-        const html = `
+        switch(tab) {
+            case 'status':
+                content.innerHTML = this.getStatusContent();
+                break;
+            case 'logs':
+                content.innerHTML = this.getLogsContent();
+                break;
+            case 'actions':
+                content.innerHTML = this.getActionsContent();
+                break;
+        }
+    }
+
+    /**
+     * 获取状态内容
+     */
+    getStatusContent() {
+        return `
             <div style="margin-bottom: 15px;">
                 <h4 style="margin: 10px 0 5px 0; color: #2196F3;">📊 数据状态</h4>
                 ${this.checkDataStatus()}
@@ -63,13 +131,100 @@ class DebugHelper {
             </div>
 
             <div style="margin-bottom: 15px;">
+                <h4 style="margin: 10px 0 5px 0; color: #FF5722;">🎯 系统状态</h4>
+                ${this.checkSystemStatus()}
+            </div>
+        `;
+    }
+
+    /**
+     * 获取日志内容
+     */
+    getLogsContent() {
+        const logsHtml = debugLogs.slice().reverse().map(log => {
+            const color = log.level === 'error' ? '#f44336' :
+                         log.level === 'warn' ? '#ff9800' : '#666';
+            return `<div style="padding: 5px; border-bottom: 1px solid #eee; font-size: 11px;">
+                <span style="color: #999;">[${log.time}]</span>
+                <span style="color: ${color}; font-weight: bold;">${log.level.toUpperCase()}</span>
+                <span style="color: #333;">${log.message}</span>
+            </div>`;
+        }).join('');
+
+        return `
+            <div style="margin-bottom: 10px; display: flex; gap: 10px;">
+                <button onclick="debugHelper.clearLogs()" style="background: #f44336; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; flex: 1;">
+                    🗑️ 清空日志
+                </button>
+                <button onclick="debugHelper.refreshLogs()" style="background: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; flex: 1;">
+                    🔄 刷新
+                </button>
+            </div>
+            <div style="max-height: 400px; overflow-y: auto; background: #fafafa; border: 1px solid #ddd; border-radius: 4px;">
+                ${logsHtml || '<div style="padding: 20px; text-align: center; color: #999;">暂无日志</div>'}
+            </div>
+            <div style="margin-top: 10px; font-size: 11px; color: #999;">
+                共 ${debugLogs.length} 条日志（最多保存 ${MAX_LOGS} 条）
+            </div>
+        `;
+    }
+
+    /**
+     * 获取操作内容
+     */
+    getActionsContent() {
+        return `
+            <div style="margin-bottom: 15px;">
                 <h4 style="margin: 10px 0 5px 0; color: #FF9800;">🔧 快速操作</h4>
                 ${this.getQuickActions()}
             </div>
         `;
-
-        content.innerHTML = html;
     }
+
+    /**
+     * 检查系统状态
+     */
+    checkSystemStatus() {
+        const hasVolumeManager = typeof volumeManager !== 'undefined' && volumeManager !== null;
+        const hasDataManager = typeof dataManager !== 'undefined' && dataManager !== null;
+        const hasWordExporter = typeof wordExporter !== 'undefined' && wordExporter !== null;
+
+        return `
+            <div style="background: #f5f5f5; padding: 10px; border-radius: 4px;">
+                <div style="margin: 5px 0;">
+                    ${hasVolumeManager ? '✅' : '❌'} <strong>VolumeManager:</strong> ${hasVolumeManager ? '已加载' : '未加载'}
+                    ${hasVolumeManager ? `<br><span style="margin-left: 20px; font-size: 11px;">案卷数: ${volumeManager.volumes.length}, 当前: ${volumeManager.getCurrentVolume()?.title || '无'}</span>` : ''}
+                </div>
+                <div style="margin: 5px 0;">
+                    ${hasDataManager ? '✅' : '❌'} <strong>DataManager:</strong> ${hasDataManager ? '已加载' : '未加载'}
+                </div>
+                <div style="margin: 5px 0;">
+                    ${hasWordExporter ? '✅' : '❌'} <strong>WordExporter:</strong> ${hasWordExporter ? '已加载' : '未加载'}
+                </div>
+                <div style="margin: 5px 0;">
+                    <strong>新建案卷按钮:</strong> ${document.getElementById('createVolumeBtn') ? '✅ 存在' : '❌ 不存在'}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * 清空日志
+     */
+    clearLogs() {
+        debugLogs.length = 0;
+        this.updateDebugContent('logs');
+        showToast('日志已清空', 'success');
+    }
+
+    /**
+     * 刷新日志
+     */
+    refreshLogs() {
+        this.updateDebugContent('logs');
+        showToast('日志已刷新', 'success');
+    }
+
 
     /**
      * 检查数据状态
@@ -132,9 +287,13 @@ class DebugHelper {
                 <button onclick="debugHelper.autoGenerateAll()" style="background: #FF9800; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 5px;">
                     ⚡ 自动生成所有数据
                 </button>
-                <button onclick="debugHelper.exportDataJSON()" style="background: #9C27B0; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 5px;">
-                    💾 导出数据JSON
+                <button onclick="debugHelper.exportDataJSON()" style="background: #4CAF50; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 5px;">
+                    💾 导出数据到JSON文件
                 </button>
+                <button onclick="document.getElementById('import-data-file').click()" style="background: #2196F3; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 5px;">
+                    📂 从JSON文件导入数据
+                </button>
+                <input type="file" id="import-data-file" accept=".json" style="display: none;" onchange="debugHelper.importDataJSON(this.files[0])">
                 <button onclick="debugHelper.viewStorageData()" style="background: #607D8B; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%;">
                     🗄️ 查看存储数据
                 </button>
@@ -247,7 +406,7 @@ ${(!result.record || !result.cover) ? '\n⚠️ 建议：先点击"自动生成�
             renderRecordForm();
             renderCoverForm();
             renderCatalogTable();
-            this.updateDebugInfo();
+            this.updateDebugContent('status');
             showToast('已自动生成所有表格数据', 'success');
         } catch (error) {
             console.error('自动生成失败：', error);
@@ -259,33 +418,160 @@ ${(!result.record || !result.cover) ? '\n⚠️ 建议：先点击"自动生成�
      * 导出数据为JSON
      */
     exportDataJSON() {
-        const data = {
-            directory: this.dataManager.directoryData,
-            record: this.dataManager.recordData,
-            cover: this.dataManager.coverData,
-            catalog: this.dataManager.catalogData,
-            exportTime: new Date().toISOString()
-        };
+        try {
+            let data;
 
-        const json = JSON.stringify(data, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `调试数据_${this.dataManager.getTodayDate()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
+            // 优先导出多卷数据
+            if (typeof volumeManager !== 'undefined' && volumeManager && volumeManager.volumes.length > 0) {
+                data = {
+                    type: 'multi-volume',
+                    projectInfo: volumeManager.projectInfo,
+                    volumes: volumeManager.volumes,
+                    transferData: volumeManager.transferData,
+                    exportTime: new Date().toISOString(),
+                    exportVersion: '2.0'
+                };
+            } else {
+                // 导出单卷数据（向后兼容）
+                data = {
+                    type: 'single-volume',
+                    directory: this.dataManager.directoryData,
+                    record: this.dataManager.recordData,
+                    cover: this.dataManager.coverData,
+                    catalog: this.dataManager.catalogData,
+                    exportTime: new Date().toISOString(),
+                    exportVersion: '1.0'
+                };
+            }
 
-        showToast('数据已导出为JSON', 'success');
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const projectName = volumeManager?.projectInfo?.name || '工程档案';
+            a.download = `${projectName}_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            console.log('数据已导出:', data);
+            showToast('数据已导出为JSON文件', 'success');
+        } catch (error) {
+            console.error('导出失败:', error);
+            showToast('导出失败: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * 导入数据从JSON文件
+     */
+    async importDataJSON(file) {
+        if (!file) {
+            showToast('请选择文件', 'warning');
+            return;
+        }
+
+        try {
+            console.log('正在导入文件:', file.name);
+            const text = await file.text();
+            const data = JSON.parse(text);
+
+            console.log('导入的数据:', data);
+
+            if (!data.type) {
+                showToast('文件格式不正确', 'error');
+                return;
+            }
+
+            if (!confirm(`确定要导入数据吗？\n\n类型: ${data.type}\n版本: ${data.exportVersion}\n导出时间: ${data.exportTime}\n\n当前数据将被覆盖！`)) {
+                return;
+            }
+
+            if (data.type === 'multi-volume') {
+                // 导入多卷数据
+                if (typeof volumeManager === 'undefined' || !volumeManager) {
+                    showToast('多卷管理系统未加载', 'error');
+                    return;
+                }
+
+                volumeManager.projectInfo = data.projectInfo || volumeManager.projectInfo;
+                volumeManager.volumes = data.volumes || [];
+                volumeManager.transferData = data.transferData || volumeManager.transferData;
+
+                if (volumeManager.volumes.length > 0) {
+                    volumeManager.currentVolumeId = volumeManager.volumes[0].id;
+                }
+
+                volumeManager.saveData();
+
+                // 刷新UI
+                if (typeof renderVolumesList === 'function') {
+                    renderVolumesList();
+                }
+                if (typeof renderProjectInfo === 'function') {
+                    renderProjectInfo();
+                }
+                if (typeof renderTransferStats === 'function') {
+                    renderTransferStats();
+                }
+
+                showToast(`成功导入 ${volumeManager.volumes.length} 个案卷`, 'success');
+                console.log('多卷数据导入成功');
+
+            } else if (data.type === 'single-volume') {
+                // 导入单卷数据
+                this.dataManager.directoryData = data.directory || [];
+                this.dataManager.recordData = data.record || {};
+                this.dataManager.coverData = data.cover || {};
+                this.dataManager.catalogData = data.catalog || [];
+
+                this.dataManager.saveToLocalStorage();
+
+                // 刷新UI
+                if (typeof renderDirectoryTable === 'function') {
+                    renderDirectoryTable();
+                }
+                if (typeof renderRecordForm === 'function') {
+                    renderRecordForm();
+                }
+                if (typeof renderCoverForm === 'function') {
+                    renderCoverForm();
+                }
+                if (typeof renderCatalogTable === 'function') {
+                    renderCatalogTable();
+                }
+
+                showToast('单卷数据导入成功', 'success');
+                console.log('单卷数据导入成功');
+            }
+
+            // 刷新调试面板
+            this.updateDebugContent('status');
+
+            // 清空文件输入
+            document.getElementById('import-data-file').value = '';
+
+        } catch (error) {
+            console.error('导入失败:', error);
+            showToast('导入失败: ' + error.message, 'error');
+        }
     }
 
     /**
      * 查看存储数据
      */
     viewStorageData() {
-        const data = localStorage.getItem('archiveData');
-        if (data) {
-            console.log('LocalStorage 数据：', JSON.parse(data));
+        const multiVolumeData = localStorage.getItem('volumeData');
+        const singleVolumeData = localStorage.getItem('archiveData');
+
+        if (multiVolumeData) {
+            console.log('多卷数据 (volumeData):', JSON.parse(multiVolumeData));
+        }
+        if (singleVolumeData) {
+            console.log('单卷数据 (archiveData):', JSON.parse(singleVolumeData));
+        }
+
+        if (multiVolumeData || singleVolumeData) {
             alert('数据已输出到控制台，按F12查看');
         } else {
             alert('本地存储中没有数据');
