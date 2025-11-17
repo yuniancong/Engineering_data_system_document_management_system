@@ -447,11 +447,19 @@
             <div class="data-actions">
                 <button id="saveDataBtn" class="btn btn-primary">保存数据</button>
                 <button id="loadDataBtn" class="btn btn-secondary">加载数据</button>
-                <button id="exportProjectDataBtn" class="btn btn-info">导出项目数据</button>
-                <button id="importProjectDataBtn" class="btn btn-info">导入项目数据</button>
                 <button id="exportDataBtn" class="btn btn-success">导出Excel</button>
                 <button id="exportWordBtn" class="btn btn-success">导出Word</button>
                 <button id="clearDataBtn" class="btn btn-danger">清空所有数据</button>
+            </div>
+            <div class="project-backup">
+                <h3>📦 项目级备份与恢复</h3>
+                <p>将当前工程的全部案卷、目录、移交信息一次性导出为JSON备份文件，并在需要时重新加载。</p>
+                <div class="project-backup-actions">
+                    <button id="exportProjectDataBtn" class="btn btn-info">导出整个项目</button>
+                    <button id="importProjectDataBtn" class="btn btn-info">加载项目备份</button>
+                    <button id="openDebugLogsBtn" class="btn btn-dark">查看 Debug Logs</button>
+                </div>
+                <p class="backup-hint">提示：项目级备份独立于浏览器自动保存功能，可作为长期归档和跨设备迁移的保险方案。</p>
             </div>
         </footer>
     </div>

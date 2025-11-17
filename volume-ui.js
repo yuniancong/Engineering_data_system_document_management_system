@@ -3,8 +3,10 @@
  * 处理案卷管理、移交书等页面的用户交互
  */
 
-// 全局变量
-let volumeManager = null;
+// 全局变量（允许与其他脚本共享同一个实例）
+let volumeManager = (typeof window !== 'undefined' && window.volumeManager)
+    ? window.volumeManager
+    : null;
 
 /**
  * 初始化多卷管理UI
@@ -24,16 +26,27 @@ function initVolumeUI() {
         console.log('创建VolumeManager实例...');
         volumeManager = new VolumeManager();
 
-        // 尝试从旧数据迁移
-        volumeManager.migrateFromOldData();
-
-        // 如果没有案卷，创建默认案卷
-        if (volumeManager.volumes.length === 0) {
-            console.log('创建默认案卷...');
-            volumeManager.createVolume('第1卷');
+        if (typeof window !== 'undefined') {
+            window.volumeManager = volumeManager;
         }
-        console.log(`当前有 ${volumeManager.volumes.length} 个案卷`);
+    } else {
+        console.log('复用已存在的VolumeManager实例');
     }
+
+    // 优先从本地存储加载
+    const loaded = volumeManager.loadFromLocalStorage();
+    if (loaded) {
+        console.log('已从volumeData中恢复案卷数据');
+    } else if (volumeManager.migrateFromOldData()) {
+        console.log('已迁移旧版数据到多卷管理器');
+    }
+
+    // 如果依旧没有案卷，创建一个默认案卷
+    if (volumeManager.volumes.length === 0) {
+        console.log('创建默认案卷...');
+        volumeManager.createVolume('第1卷');
+    }
+    console.log(`当前有 ${volumeManager.volumes.length} 个案卷`);
 
     // 渲染工程信息
     console.log('渲染工程信息...');
@@ -121,6 +134,7 @@ function renderVolumesList() {
  * 渲染移交书统计数据
  */
 function renderTransferStats() {
+    if (!volumeManager) return;
     const stats = volumeManager.generateTransferStats();
 
     document.getElementById('transferTotalVolumes').textContent = stats.totalVolumes;
@@ -198,6 +212,7 @@ function bindVolumeEvents() {
     // 导出/导入项目数据按钮
     const exportProjectBtn = document.getElementById('exportProjectDataBtn');
     const importProjectBtn = document.getElementById('importProjectDataBtn');
+    const debugLogsBtn = document.getElementById('openDebugLogsBtn');
 
     if (exportProjectBtn) {
         exportProjectBtn.addEventListener('click', exportProjectData);
@@ -207,6 +222,17 @@ function bindVolumeEvents() {
     if (importProjectBtn) {
         importProjectBtn.addEventListener('click', importProjectData);
         console.log('✓ 导入项目数据按钮事件已绑定');
+    }
+
+    if (debugLogsBtn) {
+        debugLogsBtn.addEventListener('click', () => {
+            if (typeof debugHelper !== 'undefined' && debugHelper) {
+                debugHelper.showDebugPanel();
+            } else {
+                showToast('调试工具正在初始化，请稍后重试', 'warning');
+            }
+        });
+        console.log('✓ Debug日志按钮事件已绑定');
     }
 }
 

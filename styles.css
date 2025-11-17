@@ -171,6 +171,24 @@ header h1 {
     background: #5a6268;
 }
 
+.btn-info {
+    background: #17a2b8;
+    color: white;
+}
+
+.btn-info:hover {
+    background: #138496;
+}
+
+.btn-dark {
+    background: #343a40;
+    color: white;
+}
+
+.btn-dark:hover {
+    background: #1d2124;
+}
+
 /* 表格样式 */
 .table-wrapper {
     overflow-x: auto;
@@ -531,6 +549,35 @@ footer p {
     flex-wrap: wrap;
 }
 
+.project-backup {
+    margin-top: 20px;
+    padding: 20px;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px dashed #cbd5f5;
+    text-align: left;
+}
+
+.project-backup h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #4a4a4a;
+}
+
+.project-backup-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin: 15px 0;
+}
+
+.backup-hint {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
     .container {
@@ -571,6 +618,10 @@ footer p {
 
     .data-actions .btn {
         width: 100%;
+    }
+
+    .project-backup {
+        text-align: center;
     }
 }
 
