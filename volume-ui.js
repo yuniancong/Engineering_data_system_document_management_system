@@ -10,14 +10,18 @@ let volumeManager = null;
  * 初始化多卷管理UI
  */
 function initVolumeUI() {
+    console.log('开始初始化多卷管理UI...');
+
     // 等待volumeManager初始化完成
     if (typeof VolumeManager === 'undefined') {
         console.error('VolumeManager未加载，请确保volume-manager.js已正确引入');
         return;
     }
+    console.log('VolumeManager类已加载');
 
     // 初始化volumeManager（如果还没有实例）
     if (!volumeManager) {
+        console.log('创建VolumeManager实例...');
         volumeManager = new VolumeManager();
 
         // 尝试从旧数据迁移
@@ -25,23 +29,29 @@ function initVolumeUI() {
 
         // 如果没有案卷，创建默认案卷
         if (volumeManager.volumes.length === 0) {
+            console.log('创建默认案卷...');
             volumeManager.createVolume('第1卷');
         }
+        console.log(`当前有 ${volumeManager.volumes.length} 个案卷`);
     }
 
     // 渲染工程信息
+    console.log('渲染工程信息...');
     renderProjectInfo();
 
     // 渲染案卷列表
+    console.log('渲染案卷列表...');
     renderVolumesList();
 
     // 渲染移交书统计
+    console.log('渲染移交书统计...');
     renderTransferStats();
 
     // 绑定事件
+    console.log('绑定UI事件...');
     bindVolumeEvents();
 
-    console.log('多卷管理UI初始化完成');
+    console.log('✓ 多卷管理UI初始化完成');
 }
 
 /**
@@ -135,17 +145,30 @@ function renderTransferStats() {
  * 绑定事件
  */
 function bindVolumeEvents() {
-    // 新建案卷按钮
-    document.getElementById('createVolumeBtn')?.addEventListener('click', showCreateVolumeDialog);
+    const createBtn = document.getElementById('createVolumeBtn');
+    if (createBtn) {
+        createBtn.addEventListener('click', showCreateVolumeDialog);
+        console.log('✓ 新建案卷按钮事件已绑定');
+    } else {
+        console.error('✗ 未找到新建案卷按钮 (createVolumeBtn)');
+    }
 
     // 生成汇总数据按钮
-    document.getElementById('generateAllBtn')?.addEventListener('click', generateAllData);
+    const generateBtn = document.getElementById('generateAllBtn');
+    if (generateBtn) {
+        generateBtn.addEventListener('click', generateAllData);
+        console.log('✓ 生成汇总数据按钮事件已绑定');
+    }
 
     // 刷新移交书统计按钮
-    document.getElementById('syncTransferBtn')?.addEventListener('click', () => {
-        renderTransferStats();
-        showToast('统计数据已刷新', 'success');
-    });
+    const syncBtn = document.getElementById('syncTransferBtn');
+    if (syncBtn) {
+        syncBtn.addEventListener('click', () => {
+            renderTransferStats();
+            showToast('统计数据已刷新', 'success');
+        });
+        console.log('✓ 刷新统计按钮事件已绑定');
+    }
 
     // 新建案卷对话框按钮
     document.getElementById('confirmCreateVolume')?.addEventListener('click', confirmCreateVolume);
@@ -166,7 +189,11 @@ function bindVolumeEvents() {
     document.getElementById('receiveDate')?.addEventListener('change', saveTransferInfo);
 
     // 案卷列表事件委托
-    document.getElementById('volumesList')?.addEventListener('click', handleVolumeListClick);
+    const volumesList = document.getElementById('volumesList');
+    if (volumesList) {
+        volumesList.addEventListener('click', handleVolumeListClick);
+        console.log('✓ 案卷列表事件委托已绑定');
+    }
 }
 
 /**
@@ -198,9 +225,19 @@ function handleVolumeListClick(e) {
  * 显示新建案卷对话框
  */
 function showCreateVolumeDialog() {
-    document.getElementById('createVolumeDialog').style.display = 'block';
-    document.getElementById('newVolumeTitle').value = '';
-    document.getElementById('newVolumeTitle').focus();
+    console.log('显示新建案卷对话框');
+    const dialog = document.getElementById('createVolumeDialog');
+    if (dialog) {
+        dialog.style.display = 'block';
+        const titleInput = document.getElementById('newVolumeTitle');
+        if (titleInput) {
+            titleInput.value = '';
+            titleInput.focus();
+        }
+        console.log('✓ 对话框已显示');
+    } else {
+        console.error('✗ 未找到新建案卷对话框 (createVolumeDialog)');
+    }
 }
 
 /**
@@ -375,8 +412,13 @@ function syncCurrentVolumeToForms() {
 
 // 页面加载完成后初始化
 document.addEventListener('DOMContentLoaded', function() {
-    // 延迟初始化，确保其他脚本已加载
-    setTimeout(() => {
+    console.log('DOMContentLoaded - 开始初始化多卷管理UI');
+
+    // 直接初始化，不延迟
+    try {
         initVolumeUI();
-    }, 500);
+        console.log('多卷管理UI初始化成功');
+    } catch (error) {
+        console.error('多卷管理UI初始化失败:', error);
+    }
 });
