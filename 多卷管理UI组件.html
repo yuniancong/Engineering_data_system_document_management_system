@@ -1,0 +1,323 @@
+<!--
+多卷管理系统UI组件
+将以下内容集成到 index.html 中
+-->
+
+<!-- ==================================================
+     步骤1：更新标签导航（替换现有的 <nav class="tabs">）
+     ================================================== -->
+<nav class="tabs">
+    <button class="tab-btn active" data-tab="volumes">案卷管理</button>
+    <button class="tab-btn" data-tab="directory">卷内目录</button>
+    <button class="tab-btn" data-tab="record">卷内备考表</button>
+    <button class="tab-btn" data-tab="cover">案卷封面</button>
+    <button class="tab-btn" data-tab="catalog">案卷目录</button>
+    <button class="tab-btn" data-tab="transfer">档案移交书</button>
+</nav>
+
+<!-- ==================================================
+     步骤2：添加案卷管理标签页（在第一个标签页位置）
+     ================================================== -->
+<div id="volumes" class="tab-content active">
+    <div class="section-header">
+        <h2>案卷管理</h2>
+        <div class="toolbar">
+            <button id="createVolumeBtn" class="btn btn-success">+ 新建案卷</button>
+            <button id="generateAllBtn" class="btn btn-primary">生成汇总数据</button>
+        </div>
+    </div>
+
+    <!-- 工程信息 -->
+    <div class="form-section">
+        <h3>工程信息</h3>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>工程名称：</label>
+                <input type="text" id="projectName" placeholder="请输入工程名称">
+            </div>
+            <div class="form-group">
+                <label>编制单位：</label>
+                <input type="text" id="projectUnit" placeholder="请输入编制单位">
+            </div>
+            <div class="form-group">
+                <label>密级：</label>
+                <select id="projectSecretLevel">
+                    <option value="">无</option>
+                    <option value="秘密">秘密</option>
+                    <option value="机密">机密</option>
+                    <option value="绝密">绝密</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>保管期限：</label>
+                <select id="projectRetentionPeriod">
+                    <option value="永久" selected>永久</option>
+                    <option value="长期">长期</option>
+                    <option value="短期">短期</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 案卷列表 -->
+    <div class="form-section">
+        <h3>案卷列表（共 <span id="volumeCount">0</span> 卷）</h3>
+        <div id="volumesList" class="volumes-list">
+            <div class="empty-state">
+                <p>暂无案卷，请点击"新建案卷"创建</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================================================
+     步骤3：添加移交书标签页（在案卷目录之后）
+     ================================================== -->
+<div id="transfer" class="tab-content">
+    <div class="section-header">
+        <h2>档案移交书</h2>
+        <div class="toolbar">
+            <button id="syncTransferBtn" class="btn btn-success">刷新统计数据</button>
+        </div>
+    </div>
+
+    <!-- 汇总统计 -->
+    <div class="form-section">
+        <h3>汇总统计（自动计算）</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <label>案卷数量：</label>
+                <span id="transferTotalVolumes" class="stat-value">0</span> 卷
+            </div>
+            <div class="stat-item">
+                <label>文件总数：</label>
+                <span id="transferTotalFiles" class="stat-value">0</span> 份
+            </div>
+            <div class="stat-item">
+                <label>文件总页数：</label>
+                <span id="transferTotalPages" class="stat-value">0</span> 页
+            </div>
+        </div>
+
+        <h4>材料分类统计</h4>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <label>文字材料：</label>
+                <span id="transferTextVolumes" class="stat-value">0</span> 卷 /
+                <span id="transferTextPages" class="stat-value">0</span> 页
+            </div>
+            <div class="stat-item">
+                <label>图样材料：</label>
+                <span id="transferDrawingVolumes" class="stat-value">0</span> 卷 /
+                <span id="transferDrawingPages" class="stat-value">0</span> 张
+            </div>
+            <div class="stat-item">
+                <label>照片：</label>
+                <span id="transferPhotoCount" class="stat-value">0</span> 张
+            </div>
+        </div>
+    </div>
+
+    <!-- 移交信息 -->
+    <div class="form-section">
+        <h3>移交信息</h3>
+        <div class="form-grid">
+            <div class="form-group full-width">
+                <label>移交说明：</label>
+                <textarea id="transferNote" rows="3" placeholder="请输入移交说明">本工程档案资料已按GB 50328-2014标准整理完毕，现移交存档。</textarea>
+            </div>
+            <div class="form-group">
+                <label>移交人：</label>
+                <input type="text" id="transferPerson" placeholder="请输入移交人姓名">
+            </div>
+            <div class="form-group">
+                <label>移交日期：</label>
+                <input type="date" id="transferDate">
+            </div>
+            <div class="form-group">
+                <label>接收人：</label>
+                <input type="text" id="receivePerson" placeholder="请输入接收人姓名">
+            </div>
+            <div class="form-group">
+                <label>接收日期：</label>
+                <input type="date" id="receiveDate">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================================================
+     步骤4：新建案卷对话框
+     ================================================== -->
+<div id="createVolumeDialog" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>新建案卷</h3>
+            <button class="modal-close" id="closeCreateVolumeDialog">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>案卷题名：</label>
+                <input type="text" id="newVolumeTitle" placeholder="请输入案卷题名，如：设计文件卷">
+            </div>
+            <div class="hint">
+                <p>提示：案卷创建后，可以在"卷内目录"中填写数据，系统会自动生成备考表和封面。</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" id="cancelCreateVolume">取消</button>
+            <button class="btn btn-success" id="confirmCreateVolume">创建</button>
+        </div>
+    </div>
+</div>
+
+<!-- ==================================================
+     步骤5：添加必要的CSS样式（添加到 styles.css）
+     ================================================== -->
+<style>
+/* 案卷列表 */
+.volumes-list {
+    display: grid;
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.volume-card {
+    background: #f9f9f9;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    transition: all 0.3s;
+}
+
+.volume-card:hover {
+    border-color: #4CAF50;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.volume-card.active {
+    background: #e8f5e9;
+    border-color: #4CAF50;
+}
+
+.volume-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.volume-card-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+}
+
+.volume-card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.volume-card-body {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 10px 0;
+    border-top: 1px solid #ddd;
+}
+
+.volume-stat {
+    font-size: 14px;
+    color: #666;
+}
+
+.volume-stat strong {
+    color: #333;
+}
+
+/* 统计网格 */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.stat-item {
+    padding: 15px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    border-left: 4px solid #4CAF50;
+}
+
+.stat-item label {
+    font-weight: bold;
+    color: #666;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #4CAF50;
+    margin: 0 5px;
+}
+
+/* 表单网格 */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-group textarea {
+    resize: vertical;
+    font-family: inherit;
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .form-grid,
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .volume-card-body {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<!-- ==================================================
+     步骤6：添加JavaScript引用（在 index.html 底部，其他脚本之前）
+     ================================================== -->
+<script src="volume-manager.js"></script>
+<script src="volume-ui.js"></script>

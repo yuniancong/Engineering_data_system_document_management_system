@@ -278,8 +278,70 @@ class WordExporter {
             showToast('正在生成档案移交书...', 'success');
 
             const templatePath = this.templates.transfer;
-            const coverData = this.dataManager.coverData;
-            const recordData = this.dataManager.recordData;
+
+            // 优先使用volumeManager，如果不存在则使用dataManager（向后兼容）
+            let replacements = {};
+
+            if (typeof volumeManager !== 'undefined' && volumeManager) {
+                // 使用多卷管理系统的数据
+                const projectInfo = volumeManager.projectInfo;
+                const transferData = volumeManager.transferData;
+                const stats = volumeManager.generateTransferStats();
+
+                replacements = {
+                    // 基本信息
+                    '{{title}}': projectInfo.name || '',
+                    '{{unit}}': projectInfo.unit || '',
+                    '{{date}}': this.dataManager.getTodayDate(),
+                    '{{archiveNo}}': projectInfo.id || '',
+                    '{{secretLevel}}': projectInfo.secretLevel || '',
+                    '{{retentionPeriod}}': projectInfo.retentionPeriod || '永久',
+
+                    // 统计数据（自动计算）
+                    '{{totalVolumes}}': stats.totalVolumes.toString(),
+                    '{{totalFiles}}': stats.totalFiles.toString(),
+                    '{{totalPages}}': stats.totalPages.toString(),
+                    '{{textPages}}': stats.textPages.toString(),
+                    '{{drawingPages}}': stats.drawingPages.toString(),
+                    '{{photoCount}}': stats.photoCount.toString(),
+                    '{{textVolumes}}': stats.textVolumes.toString(),
+                    '{{drawingVolumes}}': stats.drawingVolumes.toString(),
+                    '{{otherVolumes}}': stats.otherVolumes.toString(),
+
+                    // 移交信息（用户填写）
+                    '{{note}}': transferData.note || '本工程档案资料已按GB 50328-2014标准整理完毕，现移交存档。',
+                    '{{transferPerson}}': transferData.transferPerson || '',
+                    '{{transferDate}}': transferData.transferDate || '',
+                    '{{receivePerson}}': transferData.receivePerson || '',
+                    '{{receiveDate}}': transferData.receiveDate || ''
+                };
+            } else {
+                // 向后兼容：使用旧的dataManager数据
+                const coverData = this.dataManager.coverData;
+                const recordData = this.dataManager.recordData;
+
+                replacements = {
+                    '{{title}}': coverData.title || '',
+                    '{{unit}}': coverData.unit || '',
+                    '{{date}}': this.dataManager.getTodayDate(),
+                    '{{totalVolumes}}': coverData.totalVolumes || '1',
+                    '{{totalFiles}}': this.dataManager.directoryData.length.toString(),
+                    '{{totalPages}}': recordData.totalPages || '0',
+                    '{{textPages}}': recordData.textPages || '0',
+                    '{{drawingPages}}': recordData.drawingPages || '0',
+                    '{{photoCount}}': recordData.photoCount || '0',
+                    '{{textVolumes}}': '1',
+                    '{{drawingVolumes}}': '0',
+                    '{{otherVolumes}}': '0',
+                    '{{note}}': recordData.note || '本工程档案资料已按GB 50328-2014标准整理完毕，现移交存档。',
+                    '{{archiveNo}}': coverData.archiveNo || '',
+                    '{{retentionPeriod}}': coverData.retentionPeriod || '永久',
+                    '{{transferPerson}}': '',
+                    '{{transferDate}}': '',
+                    '{{receivePerson}}': '',
+                    '{{receiveDate}}': ''
+                };
+            }
 
             // 加载模板
             const templateBlob = await this.loadTemplate(templatePath);
@@ -290,18 +352,6 @@ class WordExporter {
 
             // 替换占位符
             let modifiedXml = docXml;
-            const replacements = {
-                '{{title}}': coverData.title || '',
-                '{{unit}}': coverData.unit || '',
-                '{{date}}': this.dataManager.getTodayDate(),
-                '{{totalVolumes}}': coverData.totalVolumes || '1',
-                '{{totalPages}}': recordData.totalPages || '0',
-                '{{note}}': recordData.note || '本工程档案资料已按GB 50328-2014标准整理完毕，现移交存档。',
-                '{{archiveNo}}': coverData.archiveNo || '',
-                '{{retentionPeriod}}': coverData.retentionPeriod || '永久'
-            };
-
-            // 执行替换
             Object.keys(replacements).forEach(placeholder => {
                 const regex = new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g');
                 modifiedXml = modifiedXml.replace(regex, this.escapeXml(replacements[placeholder]));
