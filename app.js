@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', function() {
  * 初始化应用
  */
 function initializeApp() {
+    console.log('🚀 开始初始化应用...');
+
+    // 初始化多卷管理UI（必须最先初始化）
+    if (typeof initVolumeUI === 'function') {
+        initVolumeUI();
+    }
+
     // 初始化标签页切换
     initTabs();
 
@@ -47,6 +54,8 @@ function initializeApp() {
     setInterval(() => {
         dataManager.saveToLocalStorage();
     }, 30000); // 每30秒自动保存
+
+    console.log('✅ 应用初始化完成');
 }
 
 // ========== 标签页切换 ==========
@@ -586,6 +595,9 @@ function initDataActions() {
     const loadBtn = document.getElementById('loadDataBtn');
     const exportBtn = document.getElementById('exportDataBtn');
     const exportWordBtn = document.getElementById('exportWordBtn');
+    const exportJSONBtn = document.getElementById('exportJSONBtn');
+    const importJSONBtn = document.getElementById('importJSONBtn');
+    const importJSONFile = document.getElementById('importJSONFile');
     const clearBtn = document.getElementById('clearDataBtn');
 
     saveBtn.addEventListener('click', () => {
@@ -609,6 +621,28 @@ function initDataActions() {
     // Word导出按钮
     exportWordBtn.addEventListener('click', () => {
         openWordExportDialog();
+    });
+
+    // JSON导出按钮
+    exportJSONBtn.addEventListener('click', () => {
+        if (typeof debugHelper !== 'undefined' && debugHelper) {
+            debugHelper.exportDataJSON();
+        } else {
+            showToast('调试助手未初始化，请稍后再试', 'error');
+        }
+    });
+
+    // JSON导入按钮
+    importJSONBtn.addEventListener('click', () => {
+        importJSONFile.click();
+    });
+
+    // JSON文件选择处理
+    importJSONFile.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file && typeof debugHelper !== 'undefined' && debugHelper) {
+            debugHelper.importDataJSON(file);
+        }
     });
 
     clearBtn.addEventListener('click', () => {

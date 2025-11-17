@@ -147,12 +147,8 @@ function renderTransferStats() {
 function bindVolumeEvents() {
     const createBtn = document.getElementById('createVolumeBtn');
     if (createBtn) {
-        // 移除可能存在的旧事件监听器
-        const newCreateBtn = createBtn.cloneNode(true);
-        createBtn.parentNode.replaceChild(newCreateBtn, createBtn);
-
-        // 绑定新事件
-        newCreateBtn.addEventListener('click', handleCreateVolume);
+        // 直接绑定事件（移除旧方法以避免潜在问题）
+        createBtn.addEventListener('click', handleCreateVolume);
         console.log('✓ 新建案卷按钮事件已绑定');
     } else {
         console.error('✗ 未找到新建案卷按钮 (createVolumeBtn)');
@@ -242,6 +238,9 @@ function handleCreateVolume() {
 
         // 刷新案卷列表
         renderVolumesList();
+
+        // 刷新移交书统计（确保数据同步）
+        renderTransferStats();
 
         // 切换到卷内目录标签页
         switchToTab('directory');
@@ -338,6 +337,7 @@ function editVolume(volumeId) {
 
         volumeManager.saveData();
         renderVolumesList();
+        renderTransferStats(); // 刷新移交书统计
         showToast(`已将"${oldTitle}"改名为"${newTitle.trim()}"`, 'success');
         console.log(`案卷改名: ${oldTitle} → ${newTitle.trim()}`);
     }
@@ -357,6 +357,7 @@ function deleteVolume(volumeId) {
     if (volumeManager.deleteVolume(volumeId)) {
         volumeManager.saveData();
         renderVolumesList();
+        renderTransferStats(); // 刷新移交书统计
         showToast('案卷已删除', 'success');
 
         // 如果删除的是当前卷，刷新表单
@@ -446,15 +447,4 @@ function syncCurrentVolumeToForms() {
     }
 }
 
-// 页面加载完成后初始化
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOMContentLoaded - 开始初始化多卷管理UI');
-
-    // 直接初始化，不延迟
-    try {
-        initVolumeUI();
-        console.log('多卷管理UI初始化成功');
-    } catch (error) {
-        console.error('多卷管理UI初始化失败:', error);
-    }
-});
+// 初始化由 app.js 的 initializeApp() 调用，不需要单独的 DOMContentLoaded 监听
