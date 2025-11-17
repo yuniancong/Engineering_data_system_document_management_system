@@ -135,8 +135,11 @@ class DebugHelper {
                 <button onclick="debugHelper.exportDataJSON()" style="background: #9C27B0; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 5px;">
                     💾 导出数据JSON
                 </button>
-                <button onclick="debugHelper.viewStorageData()" style="background: #607D8B; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%;">
+                <button onclick="debugHelper.viewStorageData()" style="background: #607D8B; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%; margin-bottom: 5px;">
                     🗄️ 查看存储数据
+                </button>
+                <button onclick="debugHelper.showDebugLogs()" style="background: #00BCD4; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; width: 100%;">
+                    📋 查看Debug日志
                 </button>
             </div>
         `;
@@ -290,6 +293,232 @@ ${(!result.record || !result.cover) ? '\n⚠️ 建议：先点击"自动生成�
         } else {
             alert('本地存储中没有数据');
         }
+    }
+
+    /**
+     * 显示Debug日志
+     */
+    showDebugLogs() {
+        // 创建日志窗口
+        const logsWindow = window.open('', 'Debug日志', 'width=800,height=600');
+
+        if (!logsWindow) {
+            alert('请允许弹出窗口以查看Debug日志');
+            return;
+        }
+
+        // 收集所有日志信息
+        const logs = this.collectDebugLogs();
+
+        // 生成HTML内容
+        logsWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Debug日志 - 工程资料归档管理系统</title>
+                <style>
+                    body {
+                        font-family: 'Consolas', 'Monaco', monospace;
+                        padding: 20px;
+                        background: #1e1e1e;
+                        color: #d4d4d4;
+                    }
+                    h1 {
+                        color: #4EC9B0;
+                        border-bottom: 2px solid #4EC9B0;
+                        padding-bottom: 10px;
+                    }
+                    h2 {
+                        color: #DCDCAA;
+                        margin-top: 30px;
+                    }
+                    .log-section {
+                        background: #252526;
+                        padding: 15px;
+                        margin: 10px 0;
+                        border-radius: 5px;
+                        border-left: 4px solid #007ACC;
+                    }
+                    .log-item {
+                        margin: 5px 0;
+                        padding: 5px;
+                    }
+                    .log-key {
+                        color: #9CDCFE;
+                        font-weight: bold;
+                    }
+                    .log-value {
+                        color: #CE9178;
+                    }
+                    .log-number {
+                        color: #B5CEA8;
+                    }
+                    .log-null {
+                        color: #569CD6;
+                    }
+                    pre {
+                        background: #1e1e1e;
+                        padding: 10px;
+                        border-radius: 3px;
+                        overflow-x: auto;
+                    }
+                    .toolbar {
+                        position: fixed;
+                        top: 10px;
+                        right: 10px;
+                        z-index: 1000;
+                    }
+                    button {
+                        background: #007ACC;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        margin: 0 5px;
+                        border-radius: 5px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    }
+                    button:hover {
+                        background: #005A9E;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="toolbar">
+                    <button onclick="window.print()">🖨️ 打印</button>
+                    <button onclick="copyAll()">📋 复制全部</button>
+                    <button onclick="window.close()">❌ 关闭</button>
+                </div>
+                <h1>🔍 Debug日志</h1>
+                <p style="color: #858585;">生成时间: ${new Date().toLocaleString()}</p>
+                ${logs}
+                <script>
+                    function copyAll() {
+                        const text = document.body.innerText;
+                        navigator.clipboard.writeText(text).then(() => {
+                            alert('日志已复制到剪贴板');
+                        }).catch(err => {
+                            alert('复制失败: ' + err);
+                        });
+                    }
+                </script>
+            </body>
+            </html>
+        `);
+
+        logsWindow.document.close();
+    }
+
+    /**
+     * 收集所有Debug日志
+     */
+    collectDebugLogs() {
+        let html = '';
+
+        // 1. 系统信息
+        html += `
+            <div class="log-section">
+                <h2>📱 系统信息</h2>
+                <div class="log-item"><span class="log-key">浏览器:</span> <span class="log-value">${navigator.userAgent}</span></div>
+                <div class="log-item"><span class="log-key">当前URL:</span> <span class="log-value">${window.location.href}</span></div>
+                <div class="log-item"><span class="log-key">屏幕分辨率:</span> <span class="log-number">${window.screen.width} x ${window.screen.height}</span></div>
+                <div class="log-item"><span class="log-key">可用内存:</span> <span class="log-number">${navigator.deviceMemory || '未知'} GB</span></div>
+            </div>
+        `;
+
+        // 2. VolumeManager状态
+        if (typeof volumeManager !== 'undefined' && volumeManager) {
+            html += `
+                <div class="log-section">
+                    <h2>📦 VolumeManager状态</h2>
+                    <div class="log-item"><span class="log-key">案卷数量:</span> <span class="log-number">${volumeManager.volumes.length}</span></div>
+                    <div class="log-item"><span class="log-key">当前案卷ID:</span> <span class="log-value">${volumeManager.currentVolumeId || '未设置'}</span></div>
+                    <div class="log-item"><span class="log-key">工程名称:</span> <span class="log-value">${volumeManager.projectInfo.name || '未设置'}</span></div>
+                    <div class="log-item"><span class="log-key">编制单位:</span> <span class="log-value">${volumeManager.projectInfo.unit || '未设置'}</span></div>
+                    <pre>${JSON.stringify(volumeManager.projectInfo, null, 2)}</pre>
+                </div>
+            `;
+
+            // 案卷列表详情
+            html += `
+                <div class="log-section">
+                    <h2>📚 案卷列表详情</h2>
+            `;
+            volumeManager.volumes.forEach((volume, index) => {
+                html += `
+                    <div class="log-item">
+                        <strong>案卷 ${index + 1}:</strong> ${volume.title}
+                        <div style="margin-left: 20px;">
+                            <span class="log-key">ID:</span> <span class="log-value">${volume.id}</span><br>
+                            <span class="log-key">文件数:</span> <span class="log-number">${volume.directory.length}</span><br>
+                            <span class="log-key">创建日期:</span> <span class="log-value">${volume.createDate}</span>
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        } else {
+            html += `
+                <div class="log-section">
+                    <h2>📦 VolumeManager状态</h2>
+                    <div class="log-item"><span class="log-null">⚠️ VolumeManager未初始化</span></div>
+                </div>
+            `;
+        }
+
+        // 3. LocalStorage数据
+        html += `
+            <div class="log-section">
+                <h2>💾 LocalStorage数据</h2>
+        `;
+        try {
+            const volumeData = localStorage.getItem('volumeData');
+            const archiveData = localStorage.getItem('archiveData');
+
+            if (volumeData) {
+                html += `
+                    <div class="log-item"><span class="log-key">volumeData:</span> 存在 (${(volumeData.length / 1024).toFixed(2)} KB)</div>
+                    <pre>${JSON.stringify(JSON.parse(volumeData), null, 2).substring(0, 1000)}...</pre>
+                `;
+            } else {
+                html += `<div class="log-item"><span class="log-null">volumeData: 不存在</span></div>`;
+            }
+
+            if (archiveData) {
+                html += `
+                    <div class="log-item"><span class="log-key">archiveData:</span> 存在 (${(archiveData.length / 1024).toFixed(2)} KB)</div>
+                `;
+            } else {
+                html += `<div class="log-item"><span class="log-null">archiveData: 不存在</span></div>`;
+            }
+        } catch (error) {
+            html += `<div class="log-item"><span class="log-null">读取失败: ${error.message}</span></div>`;
+        }
+        html += `</div>`;
+
+        // 4. 控制台日志（如果可用）
+        html += `
+            <div class="log-section">
+                <h2>📝 控制台提示</h2>
+                <div class="log-item">打开浏览器控制台 (F12) 查看详细的运行时日志</div>
+                <div class="log-item">
+                    <strong>常用命令:</strong><br>
+                    <code>volumeManager</code> - 查看案卷管理器<br>
+                    <code>dataManager</code> - 查看数据管理器<br>
+                    <code>localStorage</code> - 查看本地存储
+                </div>
+            </div>
+        `;
+
+        // 5. 错误信息（如果有）
+        html += `
+            <div class="log-section">
+                <h2>⚠️ 错误信息</h2>
+                <div class="log-item" id="error-list">无错误记录</div>
+            </div>
+        `;
+
+        return html;
     }
 
     /**

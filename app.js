@@ -65,6 +65,11 @@ function initTabs() {
             // 激活当前标签
             btn.classList.add('active');
             document.getElementById(targetTab).classList.add('active');
+
+            // 如果切换到移交书标签页，自动刷新统计数据
+            if (targetTab === 'transfer' && typeof renderTransferStats === 'function') {
+                renderTransferStats();
+            }
         });
     });
 }
