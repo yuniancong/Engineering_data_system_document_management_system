@@ -36,17 +36,23 @@ function initVolumeUI() {
     // 优先从本地存储加载
     const loaded = volumeManager.loadFromLocalStorage();
     if (loaded) {
-        console.log('已从volumeData中恢复案卷数据');
-    } else if (volumeManager.migrateFromOldData()) {
-        console.log('已迁移旧版数据到多卷管理器');
+        console.log('✓ 已从volumeData中恢复案卷数据');
+    } else {
+        console.log('未找到保存的数据，尝试迁移旧版数据...');
+        if (volumeManager.migrateFromOldData()) {
+            console.log('✓ 已迁移旧版数据到多卷管理器');
+        }
     }
 
     // 如果依旧没有案卷，创建一个默认案卷
     if (volumeManager.volumes.length === 0) {
         console.log('创建默认案卷...');
         volumeManager.createVolume('第1卷');
+        // 保存默认案卷
+        volumeManager.saveToLocalStorage();
+        console.log('✓ 已创建并保存默认案卷');
     }
-    console.log(`当前有 ${volumeManager.volumes.length} 个案卷`);
+    console.log(`✓ 当前有 ${volumeManager.volumes.length} 个案卷`);
 
     // 渲染工程信息
     console.log('渲染工程信息...');

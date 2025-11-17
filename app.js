@@ -21,6 +21,18 @@ document.addEventListener('DOMContentLoaded', function() {
     loadDataFromStorage();
 });
 
+// ========== 页面卸载前保存数据 ==========
+window.addEventListener('beforeunload', function() {
+    // 保存旧版数据
+    if (typeof dataManager !== 'undefined' && dataManager) {
+        dataManager.saveToLocalStorage();
+    }
+    // 保存多卷数据
+    if (typeof window.volumeManager !== 'undefined' && window.volumeManager) {
+        window.volumeManager.saveToLocalStorage();
+    }
+});
+
 /**
  * 初始化应用
  */
@@ -43,9 +55,16 @@ function initializeApp() {
     // 初始化数据操作
     initDataActions();
 
-    // 自动保存
+    // 自动保存（包括旧版数据管理器和新版多卷管理器）
     setInterval(() => {
-        dataManager.saveToLocalStorage();
+        // 保存旧版数据
+        if (typeof dataManager !== 'undefined' && dataManager) {
+            dataManager.saveToLocalStorage();
+        }
+        // 保存多卷数据
+        if (typeof window.volumeManager !== 'undefined' && window.volumeManager) {
+            window.volumeManager.saveToLocalStorage();
+        }
     }, 30000); // 每30秒自动保存
 }
 

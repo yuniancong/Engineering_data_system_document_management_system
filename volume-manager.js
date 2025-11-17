@@ -595,43 +595,72 @@ class VolumeManager {
      * 从LocalStorage加载
      */
     loadFromLocalStorage() {
-        const data = localStorage.getItem('volumeData');
-        if (data) {
-            const parsed = JSON.parse(data);
-            this.projectInfo = parsed.projectInfo || this.projectInfo;
-            this.volumes = parsed.volumes || [];
-            this.currentVolumeId = parsed.currentVolumeId || null;
-            this.transferData = parsed.transferData || this.transferData;
-            return true;
+        try {
+            const data = localStorage.getItem('volumeData');
+            if (data) {
+                const parsed = JSON.parse(data);
+
+                // 验证数据格式
+                if (!parsed || typeof parsed !== 'object') {
+                    console.error('volumeData 格式无效');
+                    return false;
+                }
+
+                // 加载数据
+                this.projectInfo = parsed.projectInfo || this.projectInfo;
+                this.volumes = Array.isArray(parsed.volumes) ? parsed.volumes : [];
+                this.currentVolumeId = parsed.currentVolumeId || null;
+                this.transferData = parsed.transferData || this.transferData;
+
+                console.log(`成功加载 ${this.volumes.length} 个案卷`);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('加载 volumeData 失败:', error);
+            // 如果数据损坏，清除并重新开始
+            localStorage.removeItem('volumeData');
+            return false;
         }
-        return false;
     }
 
     /**
      * 从旧数据迁移
      */
     migrateFromOldData() {
-        const oldData = localStorage.getItem('archiveData');
-        if (oldData && this.volumes.length === 0) {
-            const parsed = JSON.parse(oldData);
+        try {
+            const oldData = localStorage.getItem('archiveData');
+            if (oldData && this.volumes.length === 0) {
+                const parsed = JSON.parse(oldData);
 
-            // 创建第一个卷
-            const volume = this.createVolume('第1卷');
+                // 验证旧数据格式
+                if (!parsed || typeof parsed !== 'object') {
+                    console.error('archiveData 格式无效，跳过迁移');
+                    return false;
+                }
 
-            // 迁移数据
-            volume.directory = parsed.directoryData || [];
-            volume.record = parsed.recordData || volume.record;
-            if (parsed.coverData) {
-                Object.assign(volume.cover, parsed.coverData);
-                volume.title = parsed.coverData.title || volume.title;
+                // 创建第一个卷
+                const volume = this.createVolume('第1卷');
+
+                // 迁移数据
+                volume.directory = Array.isArray(parsed.directoryData) ? parsed.directoryData : [];
+                volume.record = parsed.recordData || volume.record;
+                if (parsed.coverData && typeof parsed.coverData === 'object') {
+                    Object.assign(volume.cover, parsed.coverData);
+                    volume.title = parsed.coverData.title || volume.title;
+                }
+
+                // 保存到新格式
+                this.saveToLocalStorage();
+                console.log('✓ 已从旧数据迁移到新的多卷管理系统');
+                return true;
             }
-
-            // 保存
-            this.saveToLocalStorage();
-            console.log('已从旧数据迁移到新的多卷管理系统');
-            return true;
+            return false;
+        } catch (error) {
+            console.error('迁移旧数据失败:', error);
+            // 迁移失败不影响新数据使用
+            return false;
         }
-        return false;
     }
 
     /**
