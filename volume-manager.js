@@ -733,5 +733,7 @@ class VolumeManager {
     }
 }
 
-// 创建全局实例
-const volumeManager = new VolumeManager();
+// 将类暴露到全局，供其他脚本按需创建/复用实例
+if (typeof window !== 'undefined') {
+    window.VolumeManager = VolumeManager;
+}
