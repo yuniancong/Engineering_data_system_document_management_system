@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统诊断测试</title>
+    <style>
+        body {
+            font-family: "Microsoft YaHei", sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            color: #333;
+            margin-top: 0;
+        }
+        .test-btn {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-btn:hover {
+            background: #1976D2;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 系统诊断工具</h1>
+
+    <div class="test-section">
+        <h2>1. 检查页面元素</h2>
+        <button class="test-btn" onclick="checkElements()">检查元素是否存在</button>
+        <div id="elements-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. 检查JavaScript对象</h2>
+        <button class="test-btn" onclick="checkObjects()">检查全局对象</button>
+        <div id="objects-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. 测试新建案卷</h2>
+        <button class="test-btn" onclick="testCreateVolume()">测试新建案卷功能</button>
+        <div id="create-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. 测试移交书统计</h2>
+        <button class="test-btn" onclick="testTransferStats()">测试统计数据</button>
+        <div id="transfer-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. 查看控制台日志</h2>
+        <button class="test-btn" onclick="showConsoleLogs()">显示最近日志</button>
+        <div id="logs-result" class="result"></div>
+    </div>
+
+    <script>
+        function checkElements() {
+            const result = document.getElementById('elements-result');
+            let output = '';
+
+            const elements = [
+                'createVolumeBtn',
+                'generateAllBtn',
+                'syncTransferBtn',
+                'volumesList',
+                'volumeCount',
+                'transferTotalVolumes',
+                'transferTotalFiles',
+                'transferTotalPages'
+            ];
+
+            elements.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    output += `✅ ${id}: 存在\n`;
+                } else {
+                    output += `❌ ${id}: 不存在\n`;
+                }
+            });
+
+            result.textContent = output;
+        }
+
+        function checkObjects() {
+            const result = document.getElementById('objects-result');
+            let output = '';
+
+            output += `VolumeManager类: ${typeof VolumeManager !== 'undefined' ? '✅ 存在' : '❌ 不存在'}\n`;
+            output += `volumeManager实例: ${typeof volumeManager !== 'undefined' && volumeManager ? '✅ 存在' : '❌ 不存在'}\n`;
+            output += `DataManager类: ${typeof DataManager !== 'undefined' ? '✅ 存在' : '❌ 不存在'}\n`;
+            output += `dataManager实例: ${typeof dataManager !== 'undefined' && dataManager ? '✅ 存在' : '❌ 不存在'}\n`;
+            output += `debugHelper实例: ${typeof debugHelper !== 'undefined' && debugHelper ? '✅ 存在' : '❌ 不存在'}\n`;
+
+            if (typeof volumeManager !== 'undefined' && volumeManager) {
+                output += `\n案卷数量: ${volumeManager.volumes.length}\n`;
+                output += `当前案卷: ${volumeManager.getCurrentVolume()?.title || '无'}\n`;
+            }
+
+            result.textContent = output;
+        }
+
+        function testCreateVolume() {
+            const result = document.getElementById('create-result');
+            let output = '';
+
+            try {
+                // 检查按钮
+                const btn = document.getElementById('createVolumeBtn');
+                if (!btn) {
+                    output += '❌ 新建案卷按钮不存在\n';
+                    result.textContent = output;
+                    return;
+                }
+                output += '✅ 新建案卷按钮存在\n';
+
+                // 检查volumeManager
+                if (typeof volumeManager === 'undefined' || !volumeManager) {
+                    output += '❌ volumeManager未初始化\n';
+                    result.textContent = output;
+                    return;
+                }
+                output += '✅ volumeManager已初始化\n';
+
+                // 检查事件监听器
+                const listeners = getEventListeners(btn);
+                output += `按钮事件监听器数量: ${listeners.click ? listeners.click.length : 0}\n`;
+
+                // 尝试手动创建案卷
+                const beforeCount = volumeManager.volumes.length;
+                const newVolume = volumeManager.createVolume(`测试案卷${beforeCount + 1}`);
+                const afterCount = volumeManager.volumes.length;
+
+                output += `\n创建前案卷数: ${beforeCount}\n`;
+                output += `创建后案卷数: ${afterCount}\n`;
+                output += `新案卷题名: ${newVolume.title}\n`;
+                output += `新案卷ID: ${newVolume.id}\n`;
+
+                if (afterCount > beforeCount) {
+                    output += '\n✅ 手动创建案卷成功\n';
+                } else {
+                    output += '\n❌ 手动创建案卷失败\n';
+                }
+
+            } catch (error) {
+                output += `\n❌ 错误: ${error.message}\n${error.stack}`;
+            }
+
+            result.textContent = output;
+        }
+
+        function testTransferStats() {
+            const result = document.getElementById('transfer-result');
+            let output = '';
+
+            try {
+                if (typeof volumeManager === 'undefined' || !volumeManager) {
+                    output += '❌ volumeManager未初始化\n';
+                    result.textContent = output;
+                    return;
+                }
+
+                const stats = volumeManager.generateTransferStats();
+                output += '统计数据:\n';
+                output += `案卷数量: ${stats.totalVolumes}\n`;
+                output += `文件总数: ${stats.totalFiles}\n`;
+                output += `总页数: ${stats.totalPages}\n`;
+                output += `文字页数: ${stats.textPages}\n`;
+                output += `图样页数: ${stats.drawingPages}\n`;
+                output += `照片数: ${stats.photoCount}\n`;
+                output += `文字材料卷数: ${stats.textVolumes}\n`;
+                output += `图样材料卷数: ${stats.drawingVolumes}\n`;
+
+                // 检查页面显示
+                output += '\n页面显示:\n';
+                const displayVolumes = document.getElementById('transferTotalVolumes');
+                const displayFiles = document.getElementById('transferTotalFiles');
+                const displayPages = document.getElementById('transferTotalPages');
+
+                output += `显示案卷数: ${displayVolumes ? displayVolumes.textContent : '元素不存在'}\n`;
+                output += `显示文件数: ${displayFiles ? displayFiles.textContent : '元素不存在'}\n`;
+                output += `显示页数: ${displayPages ? displayPages.textContent : '元素不存在'}\n`;
+
+            } catch (error) {
+                output += `\n❌ 错误: ${error.message}\n${error.stack}`;
+            }
+
+            result.textContent = output;
+        }
+
+        function showConsoleLogs() {
+            const result = document.getElementById('logs-result');
+            let output = '';
+
+            if (typeof debugLogs !== 'undefined') {
+                output += `控制台日志数量: ${debugLogs.length}\n\n`;
+                output += '最近10条日志:\n';
+                const recentLogs = debugLogs.slice(-10);
+                recentLogs.forEach(log => {
+                    output += `[${log.time}] ${log.level.toUpperCase()}: ${log.message}\n`;
+                });
+            } else {
+                output += '❌ debugLogs未定义\n';
+            }
+
+            result.textContent = output;
+        }
+    </script>
+</body>
+</html>
