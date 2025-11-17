@@ -76,7 +76,7 @@ function renderVolumesList() {
     volumeCount.textContent = volumeManager.volumes.length;
 
     if (volumeManager.volumes.length === 0) {
-        volumesList.innerHTML = '<div class="empty-state"><p>暂无案卷，请点击"新建案卷"创建</p></div>';
+        volumesList.innerHTML = '<div class="empty-state"><p>暂无案卷，请点击"+ 新建案卷"创建</p></div>';
         return;
     }
 
@@ -89,14 +89,14 @@ function renderVolumesList() {
             <div class="volume-card ${isActive ? 'active' : ''}" data-volume-id="${volume.id}">
                 <div class="volume-card-header">
                     <div class="volume-card-title">
-                        案卷${volume.volumeNo}：${volume.title}
+                        ${volume.title}
                     </div>
                     <div class="volume-card-actions">
                         <button class="btn btn-sm btn-primary switch-volume-btn" data-volume-id="${volume.id}">
-                            ${isActive ? '✓ 当前' : '切换'}
+                            ${isActive ? '✓ 当前编辑' : '📝 填写数据'}
                         </button>
-                        <button class="btn btn-sm btn-warning edit-volume-btn" data-volume-id="${volume.id}">编辑</button>
-                        <button class="btn btn-sm btn-danger delete-volume-btn" data-volume-id="${volume.id}">删除</button>
+                        <button class="btn btn-sm btn-warning edit-volume-btn" data-volume-id="${volume.id}">✏️ 改名</button>
+                        <button class="btn btn-sm btn-danger delete-volume-btn" data-volume-id="${volume.id}">🗑️ 删除</button>
                     </div>
                 </div>
                 <div class="volume-card-body">
@@ -147,7 +147,12 @@ function renderTransferStats() {
 function bindVolumeEvents() {
     const createBtn = document.getElementById('createVolumeBtn');
     if (createBtn) {
-        createBtn.addEventListener('click', showCreateVolumeDialog);
+        // 移除可能存在的旧事件监听器
+        const newCreateBtn = createBtn.cloneNode(true);
+        createBtn.parentNode.replaceChild(newCreateBtn, createBtn);
+
+        // 绑定新事件
+        newCreateBtn.addEventListener('click', handleCreateVolume);
         console.log('✓ 新建案卷按钮事件已绑定');
     } else {
         console.error('✗ 未找到新建案卷按钮 (createVolumeBtn)');
@@ -169,11 +174,6 @@ function bindVolumeEvents() {
         });
         console.log('✓ 刷新统计按钮事件已绑定');
     }
-
-    // 新建案卷对话框按钮
-    document.getElementById('confirmCreateVolume')?.addEventListener('click', confirmCreateVolume);
-    document.getElementById('cancelCreateVolume')?.addEventListener('click', hideCreateVolumeDialog);
-    document.getElementById('closeCreateVolumeDialog')?.addEventListener('click', hideCreateVolumeDialog);
 
     // 工程信息变更监听
     document.getElementById('projectName')?.addEventListener('change', saveProjectInfo);
@@ -222,88 +222,124 @@ function handleVolumeListClick(e) {
 }
 
 /**
- * 显示新建案卷对话框
+ * 处理新建案卷
+ * 直接创建案卷并跳转到卷内目录页面
  */
-function showCreateVolumeDialog() {
-    console.log('显示新建案卷对话框');
-    const dialog = document.getElementById('createVolumeDialog');
-    if (dialog) {
-        dialog.style.display = 'block';
-        const titleInput = document.getElementById('newVolumeTitle');
-        if (titleInput) {
-            titleInput.value = '';
-            titleInput.focus();
+function handleCreateVolume() {
+    console.log('点击新建案卷按钮');
+
+    try {
+        // 计算新案卷编号
+        const volumeNo = volumeManager.volumes.length + 1;
+        const defaultTitle = `案卷${volumeNo}`;
+
+        // 创建新案卷
+        const volume = volumeManager.createVolume(defaultTitle);
+        console.log(`创建案卷: ${defaultTitle}, ID: ${volume.id}`);
+
+        // 保存数据
+        volumeManager.saveData();
+
+        // 刷新案卷列表
+        renderVolumesList();
+
+        // 切换到卷内目录标签页
+        switchToTab('directory');
+
+        // 刷新卷内目录显示
+        if (typeof renderDirectoryTable === 'function') {
+            renderDirectoryTable();
         }
-        console.log('✓ 对话框已显示');
+
+        showToast(`已创建"${defaultTitle}"，请填写卷内目录数据`, 'success');
+        console.log('✓ 案卷创建成功，已切换到卷内目录');
+    } catch (error) {
+        console.error('创建案卷失败:', error);
+        showToast('创建案卷失败: ' + error.message, 'error');
+    }
+}
+
+/**
+ * 切换标签页
+ */
+function switchToTab(tabName) {
+    console.log(`切换到标签页: ${tabName}`);
+
+    // 移除所有活动状态
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+
+    // 激活目标标签
+    const targetBtn = document.querySelector(`[data-tab="${tabName}"]`);
+    const targetContent = document.getElementById(tabName);
+
+    if (targetBtn && targetContent) {
+        targetBtn.classList.add('active');
+        targetContent.classList.add('active');
+        console.log(`✓ 已切换到 ${tabName}`);
     } else {
-        console.error('✗ 未找到新建案卷对话框 (createVolumeDialog)');
+        console.error(`✗ 未找到标签: ${tabName}`);
     }
-}
-
-/**
- * 隐藏新建案卷对话框
- */
-function hideCreateVolumeDialog() {
-    document.getElementById('createVolumeDialog').style.display = 'none';
-}
-
-/**
- * 确认创建案卷
- */
-function confirmCreateVolume() {
-    const title = document.getElementById('newVolumeTitle').value.trim();
-
-    if (!title) {
-        showToast('请输入案卷题名', 'warning');
-        return;
-    }
-
-    const volume = volumeManager.createVolume(title);
-    volumeManager.saveData();
-
-    hideCreateVolumeDialog();
-    renderVolumesList();
-
-    showToast(`案卷"${title}"创建成功`, 'success');
 }
 
 /**
  * 切换案卷
  */
 function switchVolume(volumeId) {
+    console.log(`切换案卷: ${volumeId}`);
+
     if (volumeManager.switchVolume(volumeId)) {
         volumeManager.saveData();
         renderVolumesList();
 
-        // 刷新当前卷的数据到表单
+        const volume = volumeManager.getCurrentVolume();
+        console.log(`当前案卷: ${volume.title}`);
+
+        // 切换到卷内目录标签页
+        switchToTab('directory');
+
+        // 刷新卷内目录显示
+        if (typeof renderDirectoryTable === 'function') {
+            renderDirectoryTable();
+        }
+
+        // 刷新其他表单数据
         if (typeof syncCurrentVolumeToForms === 'function') {
             syncCurrentVolumeToForms();
         }
 
-        const volume = volumeManager.getCurrentVolume();
         showToast(`已切换到"${volume.title}"`, 'success');
-
-        // 自动切换到卷内目录标签页
-        const directoryTab = document.querySelector('[data-tab="directory"]');
-        if (directoryTab) {
-            directoryTab.click();
-        }
+        console.log('✓ 案卷切换成功');
+    } else {
+        console.error('✗ 案卷切换失败');
     }
 }
 
 /**
- * 编辑案卷
+ * 编辑案卷题名
  */
 function editVolume(volumeId) {
     const volume = volumeManager.volumes.find(v => v.id === volumeId);
     if (!volume) return;
 
-    const newTitle = prompt('请输入新的案卷题名：', volume.title);
+    const newTitle = prompt('请输入新的案卷题名（如：设计文件卷、施工文件卷）：', volume.title);
     if (newTitle && newTitle.trim() !== '' && newTitle !== volume.title) {
+        const oldTitle = volume.title;
         volume.title = newTitle.trim();
+
+        // 同时更新封面的题名
+        if (volume.cover) {
+            volume.cover.title = newTitle.trim();
+        }
+
         volumeManager.saveData();
         renderVolumesList();
-        showToast('案卷题名已更新', 'success');
+        showToast(`已将"${oldTitle}"改名为"${newTitle.trim()}"`, 'success');
+        console.log(`案卷改名: ${oldTitle} → ${newTitle.trim()}`);
     }
 }
 
