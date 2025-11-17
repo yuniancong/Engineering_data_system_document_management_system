@@ -463,6 +463,41 @@ class VolumeManager {
     }
 
     /**
+     * 为指定案卷生成备考表数据
+     */
+    generateRecordForVolume(volumeId) {
+        const volume = this.getVolume(volumeId);
+        if (!volume) return;
+
+        const stats = this.calculatePageStatistics(volumeId);
+        volume.record.totalPages = this.calculateTotalPages(volumeId);
+        volume.record.textPages = stats.textPages;
+        volume.record.drawingPages = stats.drawingPages;
+        volume.record.photoCount = stats.photoCount;
+    }
+
+    /**
+     * 为指定案卷生成封面数据
+     */
+    generateCoverForVolume(volumeId) {
+        const volume = this.getVolume(volumeId);
+        if (!volume) return;
+
+        const dateRange = this.getDateRange(volumeId);
+        const responsible = this.getMostCommonResponsible(volumeId);
+
+        if (!volume.cover.title || volume.cover.title === `案卷${volume.volumeNo}`) {
+            const firstTitle = volume.directory[0]?.title || '';
+            volume.cover.title = firstTitle || volume.title;
+        }
+
+        volume.cover.unit = responsible || volume.cover.unit || this.projectInfo.unit;
+        volume.cover.startDate = dateRange.startDate || volume.cover.startDate;
+        volume.cover.endDate = dateRange.endDate || volume.cover.endDate;
+        volume.cover.totalVolumes = this.volumes.length;
+    }
+
+    /**
      * 生成案卷目录（汇总所有卷）
      */
     generateCatalog() {
@@ -550,6 +585,13 @@ class VolumeManager {
     }
 
     /**
+     * 保存数据（别名方法，兼容性）
+     */
+    saveData() {
+        return this.saveToLocalStorage();
+    }
+
+    /**
      * 从LocalStorage加载
      */
     loadFromLocalStorage() {
@@ -613,6 +655,61 @@ class VolumeManager {
             receivePerson: '',
             receiveDate: ''
         };
+    }
+
+    /**
+     * 导出整个项目数据为JSON文件
+     */
+    exportProjectData() {
+        const data = {
+            version: '1.0',
+            exportDate: this.getTodayDate(),
+            standard: 'GB 50328-2014',
+            projectInfo: this.projectInfo,
+            volumes: this.volumes,
+            currentVolumeId: this.currentVolumeId,
+            transferData: this.transferData
+        };
+
+        const json = JSON.stringify(data, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const fileName = `${this.projectInfo.name || '工程项目'}_${this.getTodayDate()}.json`;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        return fileName;
+    }
+
+    /**
+     * 从JSON文件导入项目数据
+     */
+    importProjectData(jsonString) {
+        try {
+            const data = JSON.parse(jsonString);
+
+            // 验证数据格式
+            if (!data.projectInfo || !data.volumes) {
+                throw new Error('无效的项目数据格式');
+            }
+
+            // 导入数据
+            this.projectInfo = data.projectInfo;
+            this.volumes = data.volumes;
+            this.currentVolumeId = data.currentVolumeId || null;
+            this.transferData = data.transferData || this.transferData;
+
+            // 保存到LocalStorage
+            this.saveToLocalStorage();
+
+            return true;
+        } catch (error) {
+            console.error('导入项目数据失败:', error);
+            throw error;
+        }
     }
 
     // ========== 辅助方法 ==========

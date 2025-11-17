@@ -194,6 +194,20 @@ function bindVolumeEvents() {
         volumesList.addEventListener('click', handleVolumeListClick);
         console.log('✓ 案卷列表事件委托已绑定');
     }
+
+    // 导出/导入项目数据按钮
+    const exportProjectBtn = document.getElementById('exportProjectDataBtn');
+    const importProjectBtn = document.getElementById('importProjectDataBtn');
+
+    if (exportProjectBtn) {
+        exportProjectBtn.addEventListener('click', exportProjectData);
+        console.log('✓ 导出项目数据按钮事件已绑定');
+    }
+
+    if (importProjectBtn) {
+        importProjectBtn.addEventListener('click', importProjectData);
+        console.log('✓ 导入项目数据按钮事件已绑定');
+    }
 }
 
 /**
@@ -408,6 +422,56 @@ function syncCurrentVolumeToForms() {
     if (typeof renderCatalogTable === 'function') {
         renderCatalogTable();
     }
+}
+
+/**
+ * 导出整个项目数据
+ */
+function exportProjectData() {
+    try {
+        const fileName = volumeManager.exportProjectData();
+        showToast(`项目数据已导出为 ${fileName}`, 'success');
+    } catch (error) {
+        console.error('导出项目数据失败:', error);
+        showToast('导出项目数据失败: ' + error.message, 'error');
+    }
+}
+
+/**
+ * 导入整个项目数据
+ */
+function importProjectData() {
+    // 创建文件选择器
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const jsonString = event.target.result;
+                volumeManager.importProjectData(jsonString);
+
+                // 刷新所有UI
+                renderProjectInfo();
+                renderVolumesList();
+                renderTransferStats();
+                syncCurrentVolumeToForms();
+
+                showToast('项目数据导入成功！', 'success');
+            } catch (error) {
+                console.error('导入失败:', error);
+                showToast('导入失败: ' + error.message, 'error');
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    input.click();
 }
 
 // 页面加载完成后初始化
